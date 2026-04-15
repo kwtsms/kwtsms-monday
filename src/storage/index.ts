@@ -4,7 +4,14 @@
 // Production deployments always have the token injected by the runtime, so the
 // real Storage is used there. TTL in memory mode is honoured via setTimeout.
 
-import { Storage } from '@mondaycom/apps-sdk';
+// Lazy-import the SDK so local dev (USE_MEMORY=true) never loads the SDK's
+// heavy Google Cloud transitive deps. Avoids a 15-20s server boot penalty
+// on WSL and keeps tests fast.
+type StorageLike = {
+  get(key: string): Promise<{ value?: unknown } | null>;
+  set(key: string, value: unknown, opts?: { ttl?: number }): Promise<void>;
+  delete(key: string): Promise<void>;
+};
 
 const USE_MEMORY = !process.env.MONDAY_STORAGE_TOKEN;
 const memory: Map<string, unknown> = new Map();
@@ -27,9 +34,14 @@ function memDelete(key: string): void {
   memory.delete(key);
 }
 
-let _storage: Storage | null = null;
-function getStorage(): Storage {
-  if (!_storage) _storage = new Storage(process.env.MONDAY_STORAGE_TOKEN ?? '');
+let _storage: StorageLike | null = null;
+function getStorage(): StorageLike {
+  if (!_storage) {
+    // Dynamic require keeps the SDK out of the module load graph in dev.
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const { Storage } = require('@mondaycom/apps-sdk');
+    _storage = new Storage(process.env.MONDAY_STORAGE_TOKEN ?? '') as StorageLike;
+  }
   return _storage;
 }
 

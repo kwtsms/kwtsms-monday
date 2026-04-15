@@ -1,16 +1,23 @@
 // In-memory fallback for local dev and integration tests.
-// When running outside the monday code runtime (no MONDAY_STORAGE_TOKEN),
-// SecureStorage construction would fail or throw. We use a plain Map instead.
-// Production deployments have the runtime token injected and use SecureStorage normally.
+// Lazy-imports the SDK so the heavy Google Cloud deps don't load unless
+// the real SecureStorage is actually needed (production/monday code only).
 
-import { SecureStorage } from '@mondaycom/apps-sdk';
+type SecureStorageLike = {
+  get(key: string): Promise<unknown>;
+  set(key: string, value: unknown): Promise<void>;
+  delete(key: string): Promise<void>;
+};
 
 const USE_MEMORY = !process.env.MONDAY_STORAGE_TOKEN;
 const secureMemory: Map<string, unknown> = new Map();
 
-let _secure: InstanceType<typeof SecureStorage> | null = null;
-function getSecure(): InstanceType<typeof SecureStorage> {
-  if (!_secure) _secure = new SecureStorage();
+let _secure: SecureStorageLike | null = null;
+function getSecure(): SecureStorageLike {
+  if (!_secure) {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const { SecureStorage } = require('@mondaycom/apps-sdk');
+    _secure = new SecureStorage() as SecureStorageLike;
+  }
   return _secure;
 }
 
