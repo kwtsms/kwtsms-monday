@@ -37,3 +37,6 @@ tests/
 !tests/**/*.ts
 !tests/**/*.tsx
 dist-client/
+
+# mapps manifest export dump
+[0-9]*/
