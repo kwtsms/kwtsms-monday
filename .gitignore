@@ -45,3 +45,4 @@ dist-client/
 code.tar.gz
 temp.zip
 *.tar.gz
+.mcp.json
