@@ -1,24 +1,86 @@
 import React, { useEffect, useState } from 'react';
 import mondaySdk from 'monday-sdk-js';
 import { api } from '../../api/client';
+import { countSms } from '../../utils/smsCount';
 
 const monday = mondaySdk();
 
+interface PhoneCol {
+  id: string;
+  title: string;
+  value: string;
+}
+
+interface ItemData {
+  id: string;
+  name: string;
+  columns: Record<string, string>;
+  phoneColumns: PhoneCol[];
+}
+
+async function fetchItem(itemId: string): Promise<ItemData | null> {
+  if (!itemId) return null;
+  const query = `query($id:[ID!]) {
+    items(ids:$id) {
+      id name
+      column_values {
+        id title text type
+        ... on PhoneValue { phone }
+      }
+    }
+  }`;
+  const r: any = await monday.api(query, { variables: { id: [itemId] } });
+  const it = r?.data?.items?.[0];
+  if (!it) return null;
+  const columns: Record<string, string> = {};
+  const phoneColumns: PhoneCol[] = [];
+  for (const cv of it.column_values ?? []) {
+    columns[cv.title] = cv.text ?? '';
+    if (cv.type === 'phone') {
+      phoneColumns.push({ id: cv.id, title: cv.title, value: cv.phone ?? cv.text ?? '' });
+    }
+  }
+  return { id: String(it.id), name: it.name, columns, phoneColumns };
+}
+
 export default function SendOne() {
   const [ctx, setCtx] = useState<any>(null);
+  const [item, setItem] = useState<ItemData | null>(null);
   const [tmpls, setTmpls] = useState<any[]>([]);
   const [tid, setTid] = useState('');
   const [body, setBody] = useState('');
-  const [phone, setPhone] = useState('');
+  const [phoneSource, setPhoneSource] = useState<'column' | 'custom'>('column');
+  const [selectedPhoneCol, setSelectedPhoneCol] = useState<string>('');
+  const [customPhone, setCustomPhone] = useState('');
   const [sending, setSending] = useState(false);
   const [msg, setMsg] = useState('');
+  const [err, setErr] = useState('');
 
   useEffect(() => {
-    monday.get('context').then((r: any) => {
+    monday.get('context').then(async (r: any) => {
       setCtx(r.data);
-      setPhone(r.data?.itemPhone ?? '');
+      try {
+        const id = String(r.data?.itemId ?? r.data?.pulseId ?? '');
+        if (id) {
+          const data = await fetchItem(id);
+          setItem(data);
+          if (data && data.phoneColumns.length > 0) {
+            setSelectedPhoneCol(data.phoneColumns[0].id);
+          } else {
+            setPhoneSource('custom');
+          }
+        }
+      } catch (e) {
+        setErr('Failed to load item: ' + String(e));
+      }
     });
-    void (async () => setTmpls(await api<any[]>('/api/templates')))();
+    void (async () => {
+      try {
+        setTmpls(await api<any[]>('/api/templates'));
+      } catch (e) {
+        setErr('Failed to load templates: ' + String(e));
+      }
+    })();
   }, []);
 
   function pickTemplate(id: string) {
@@ -27,9 +89,16 @@ export default function SendOne() {
     setBody(t?.body ?? '');
   }
 
+  const resolvedPhone = (() => {
+    if (phoneSource === 'custom') return customPhone.trim();
+    const pc = item?.phoneColumns.find((p) => p.id === selectedPhoneCol);
+    return pc?.value ?? '';
+  })();
+
   async function doSend() {
     setSending(true);
     setMsg('');
+    setErr('');
     try {
       const r = await api<{ sent: number; failed: number; skipped: number }>('/api/send', {
         method: 'POST',
@@ -38,14 +107,14 @@ export default function SendOne() {
           body,
           targets: [
             {
-              phoneRaw: phone,
+              phoneRaw: resolvedPhone,
               ctx: {
-                item: { id: String(ctx?.itemId ?? ''), name: ctx?.itemName ?? '' },
-                columns: ctx?.columns ?? {},
+                item: { id: item?.id ?? '', name: item?.name ?? '' },
+                columns: item?.columns ?? {},
                 board: { name: ctx?.boardName ?? '' },
                 user: {},
               },
-              itemId: String(ctx?.itemId ?? ''),
+              itemId: item?.id ?? String(ctx?.itemId ?? ''),
               boardId: String(ctx?.boardId ?? ''),
             },
           ],
@@ -53,31 +122,73 @@ export default function SendOne() {
       });
       setMsg(`Sent ${r.sent}, skipped ${r.skipped}, failed ${r.failed}`);
     } catch (e) {
-      setMsg('Send failed: ' + String(e));
+      setErr('Send failed: ' + String(e));
     } finally {
       setSending(false);
     }
   }
 
-  const pages = Math.max(1, Math.ceil(body.length / 160));
-
   if (!ctx) return <p style={{ padding: 12 }}>Loading...</p>;
+
+  const smsCount = countSms(body);
 
   return (
     <div style={{ padding: 16, fontFamily: 'system-ui, sans-serif' }}>
       <h3 style={{ marginTop: 0 }}>Send SMS via kwtSMS</h3>
-      <div>Item: <b>{ctx.itemName}</b></div>
+      {item && <div>Item: <b>{item.name}</b></div>}
+      {err && <p style={{ color: 'crimson' }}>{err}</p>}
+
       <div style={{ marginTop: 12 }}>
         <label>To:</label>
       </div>
       <div>
-        <input
-          value={phone}
-          onChange={(e) => setPhone(e.target.value)}
-          placeholder="phone number"
-          style={{ width: '100%', padding: 6 }}
-        />
+        {item && item.phoneColumns.length > 0 && (
+          <label style={{ fontSize: 13, marginRight: 12 }}>
+            <input
+              type="radio"
+              checked={phoneSource === 'column'}
+              onChange={() => setPhoneSource('column')}
+            />{' '}
+            Phone column
+          </label>
+        )}
+        <label style={{ fontSize: 13 }}>
+          <input
+            type="radio"
+            checked={phoneSource === 'custom'}
+            onChange={() => setPhoneSource('custom')}
+          />{' '}
+          Custom number
+        </label>
       </div>
+      {phoneSource === 'column' && item && item.phoneColumns.length > 0 ? (
+        <div>
+          <select
+            value={selectedPhoneCol}
+            onChange={(e) => setSelectedPhoneCol(e.target.value)}
+            style={{ width: '100%', padding: 6 }}
+          >
+            {item.phoneColumns.map((pc) => (
+              <option key={pc.id} value={pc.id}>
+                {pc.title}: {pc.value || '(empty)'}
+              </option>
+            ))}
+          </select>
+        </div>
+      ) : (
+        <div>
+          <input
+            value={customPhone}
+            onChange={(e) => setCustomPhone(e.target.value)}
+            placeholder="phone number"
+            style={{ width: '100%', padding: 6 }}
+          />
+        </div>
+      )}
+      <div style={{ fontSize: 12, color: '#666', marginTop: 2 }}>
+        Sending to: {resolvedPhone || <span style={{ color: 'crimson' }}>(none)</span>}
+      </div>
+
       <div style={{ marginTop: 12 }}>
         <label>Template:</label>
       </div>
@@ -91,6 +202,7 @@ export default function SendOne() {
           ))}
         </select>
       </div>
+
       <div style={{ marginTop: 12 }}>
         <label>Message:</label>
       </div>
@@ -103,10 +215,12 @@ export default function SendOne() {
         />
       </div>
       <div style={{ fontSize: 12, color: '#666', marginTop: 4 }}>
-        {body.length} chars, {pages} page(s)
+        {smsCount.count} chars, {smsCount.pages} page{smsCount.pages === 1 ? '' : 's'}
+        {' '}({smsCount.unicode ? 'Unicode 70/page' : 'GSM 160/page'})
       </div>
+
       <div style={{ marginTop: 12 }}>
-        <button onClick={doSend} disabled={!phone || !body || sending}>
+        <button onClick={doSend} disabled={!resolvedPhone || !body || sending}>
           {sending ? 'Sending...' : 'Send SMS'}
         </button>
       </div>

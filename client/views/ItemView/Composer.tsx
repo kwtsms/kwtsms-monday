@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { api } from '../../api/client';
+import { countSms } from '../../utils/smsCount';
 
 interface Props {
   itemId: string;
@@ -59,7 +60,7 @@ export default function Composer(p: Props) {
     }
   }
 
-  const pages = Math.max(1, Math.ceil(body.length / 160));
+  const smsCount = countSms(body);
   return (
     <div>
       <h3>Send SMS</h3>
@@ -79,7 +80,10 @@ export default function Composer(p: Props) {
       <div>
         <textarea value={body} onChange={(e) => setBody(e.target.value)} rows={4} cols={40} />
       </div>
-      <div>{body.length} chars, {pages} page(s)</div>
+      <div style={{ fontSize: 12, color: '#666' }}>
+        {smsCount.count} chars, {smsCount.pages} page{smsCount.pages === 1 ? '' : 's'}
+        {' '}({smsCount.unicode ? 'Unicode 70/page' : 'GSM 160/page'})
+      </div>
       <button onClick={doSend} disabled={!p.phone || !body || sending}>Send</button>
       {msg && <p>{msg}</p>}
     </div>

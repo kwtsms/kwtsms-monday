@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import mondaySdk from 'monday-sdk-js';
 import { api } from '../../api/client';
+import { countSms } from '../../utils/smsCount';
 
 const monday = mondaySdk();
 
@@ -89,7 +90,7 @@ export default function BoardView() {
 
   if (!ctx) return <p style={{ padding: 16 }}>Loading...</p>;
 
-  const pages = Math.max(1, Math.ceil(body.length / 160));
+  const smsCount = countSms(body);
 
   return (
     <div style={{ padding: 16, fontFamily: 'system-ui, sans-serif' }}>
@@ -128,7 +129,8 @@ export default function BoardView() {
           <textarea value={body} onChange={(e) => setBody(e.target.value)} rows={3} style={{ width: 500, padding: 6 }} />
         </div>
         <div style={{ fontSize: 12, color: '#666' }}>
-          {body.length} chars, {pages} page(s)
+          {smsCount.count} chars, {smsCount.pages} page{smsCount.pages === 1 ? '' : 's'}
+          {' '}({smsCount.unicode ? 'Unicode 70/page' : 'GSM 160/page'})
         </div>
         <div style={{ marginTop: 8 }}>
           <button onClick={doSend} disabled={!phone || !body || sending}>

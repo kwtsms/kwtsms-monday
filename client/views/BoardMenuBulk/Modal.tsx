@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import mondaySdk from 'monday-sdk-js';
 import { api } from '../../api/client';
+import { countSms } from '../../utils/smsCount';
 
 const monday = mondaySdk();
 
@@ -112,7 +113,7 @@ export default function BoardMenuBulk() {
 
   if (!ctx) return <p style={{ padding: 16 }}>Loading...</p>;
 
-  const pages = Math.max(1, Math.ceil(body.length / 160));
+  const smsCount = countSms(body);
   const hasPhone = items.filter((i) => i.phone).length;
   const noPhone = items.length - hasPhone;
 
@@ -152,7 +153,8 @@ export default function BoardMenuBulk() {
         />
       </div>
       <div style={{ fontSize: 12, color: '#666', marginTop: 4 }}>
-        {body.length} chars, {pages} page(s)
+        {smsCount.count} chars, {smsCount.pages} page{smsCount.pages === 1 ? '' : 's'}
+        {' '}({smsCount.unicode ? 'Unicode 70/page' : 'GSM 160/page'})
       </div>
       {items.length > 0 && (
         <details style={{ marginTop: 12 }}>
