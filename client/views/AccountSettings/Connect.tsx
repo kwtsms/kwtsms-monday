@@ -13,8 +13,15 @@ export default function Connect() {
   const [p, setP] = useState('');
   const [msg, setMsg] = useState('');
 
+  const [err, setErr] = useState('');
   async function load() {
-    setS(await api<Settings>('/api/settings'));
+    try {
+      setErr('');
+      const data = await api<Settings>('/api/settings');
+      setS(data);
+    } catch (e) {
+      setErr(String(e));
+    }
   }
   useEffect(() => { void load(); }, []);
 
@@ -35,6 +42,7 @@ export default function Connect() {
     await load();
   }
 
+  if (err) return <p style={{ color: 'crimson' }}>Error loading settings: {err}</p>;
   if (!s) return <p>Loading...</p>;
   return (
     <div>

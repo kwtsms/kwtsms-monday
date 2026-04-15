@@ -59,17 +59,27 @@ export default function Composer(p: Props) {
     }
   }
 
-  const segs = Math.max(1, Math.ceil(body.length / 160));
+  const pages = Math.max(1, Math.ceil(body.length / 160));
   return (
     <div>
       <h3>Send SMS</h3>
       <div>To: {p.phone || '(no phone column on item)'}</div>
-      <select value={tid} onChange={(e) => pickTemplate(e.target.value)}>
-        <option value="">(pick template)</option>
-        {tmpls.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
-      </select>
-      <textarea value={body} onChange={(e) => setBody(e.target.value)} rows={4} cols={40} />
-      <div>{body.length} chars, {segs} segment(s)</div>
+      <div style={{ marginTop: 12 }}>
+        <label>Template:</label>
+      </div>
+      <div>
+        <select value={tid} onChange={(e) => pickTemplate(e.target.value)}>
+          <option value="">(pick template)</option>
+          {tmpls.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+        </select>
+      </div>
+      <div style={{ marginTop: 12 }}>
+        <label>Message:</label>
+      </div>
+      <div>
+        <textarea value={body} onChange={(e) => setBody(e.target.value)} rows={4} cols={40} />
+      </div>
+      <div>{body.length} chars, {pages} page(s)</div>
       <button onClick={doSend} disabled={!p.phone || !body || sending}>Send</button>
       {msg && <p>{msg}</p>}
     </div>
