@@ -40,3 +40,8 @@ dist-client/
 
 # mapps manifest export dump
 [0-9]*/
+
+# mapps push artifacts
+code.tar.gz
+temp.zip
+*.tar.gz
