@@ -1,0 +1,38 @@
+# Claude Code local files
+.claude/
+CLAUDE.md
+.superpowers/
+.worktrees/
+
+# Project docs (local-only)
+docs/
+!docs/.gitkeep
+
+# Node
+node_modules/
+dist/
+build/
+coverage/
+*.log
+.DS_Store
+
+# Environment
+.env
+.env.*
+!.env.test.example
+
+# Editor
+.vscode/
+.idea/
+
+# mapps
+.mapps/
+
+# Playwright
+.playwright*
+
+# Tests
+test/
+tests/
+!tests/**/*.ts
+!tests/**/*.tsx
