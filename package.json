@@ -19,6 +19,7 @@
     "@mondaycom/apps-sdk": "^3.0.0",
     "@vibe/core": "^3.88.0",
     "express": "^4.19.0",
+    "jsonwebtoken": "^9.0.3",
     "libphonenumber-js": "^1.11.0",
     "monday-sdk-js": "^0.5.0",
     "node-fetch": "^3.3.0",
@@ -28,6 +29,7 @@
   "devDependencies": {
     "@types/express": "^4.17.0",
     "@types/jest": "^29.5.0",
+    "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^20.0.0",
     "@types/react": "^18.2.0",
     "@types/react-dom": "^18.2.0",
