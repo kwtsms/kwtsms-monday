@@ -77,7 +77,7 @@ export function normalize(
       return { parsed, prefix: c.prefix };
     })
     .filter((x) => x.parsed && x.parsed.mobile);
-  if (matches.length > 0) {
+  if (matches.length === 1) {
     return { ok: true, e164: matches[0].parsed!.e164 };
   }
 
