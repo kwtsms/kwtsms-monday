@@ -1,0 +1,4 @@
+.kwtsms-settings { padding: 16px; max-width: 960px; margin: 0 auto; font-family: system-ui, sans-serif; }
+.kwtsms-anchors { position: sticky; top: 0; background: #fff; padding: 8px 0; border-bottom: 1px solid #eee; display: flex; gap: 16px; }
+.kwtsms-anchors a { text-decoration: none; color: #333; }
+section { padding: 24px 0; border-bottom: 1px solid #f3f3f3; }
