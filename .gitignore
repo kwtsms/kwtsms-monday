@@ -36,3 +36,4 @@ test/
 tests/
 !tests/**/*.ts
 !tests/**/*.tsx
+dist-client/
