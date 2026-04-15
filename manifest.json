@@ -1,0 +1,24 @@
+{
+  "name": "kwtSMS for monday.com",
+  "description": "Send one-way SMS via the kwtSMS gateway, triggered by board events or manual bulk sends.",
+  "version": "0.1.0",
+  "features": [
+    { "type": "AccountSettingsView", "path": "/views/account-settings" },
+    { "type": "DashboardWidget", "path": "/views/dashboard-widget" },
+    { "type": "ItemView", "path": "/views/item-view" },
+    { "type": "BoardMenuAction", "path": "/actions/board-menu-bulk" },
+    { "type": "IntegrationRecipe", "id": "item_created" },
+    { "type": "IntegrationRecipe", "id": "status_to_value" },
+    { "type": "IntegrationRecipe", "id": "column_changed" },
+    { "type": "IntegrationRecipe", "id": "date_arrived" }
+  ],
+  "oauth": {
+    "scopes": [
+      "boards:read",
+      "boards:write",
+      "notifications:write",
+      "users:read",
+      "updates:write"
+    ]
+  }
+}
