@@ -1,7 +1,10 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import mondaySdk from 'monday-sdk-js';
-import { api, reportValueCreated } from '../../api/client';
+import { api, prewarm, reportValueCreated } from '../../api/client';
 import { countSms } from '../../utils/smsCount';
+import { fetchMe } from '../../utils/templateContext';
+import NewTemplateButton from '../../components/NewTemplateButton';
+import PlaceholdersHelp from '../../components/PlaceholdersHelp';
 
 const monday = mondaySdk();
 
@@ -48,10 +51,25 @@ export default function BoardView() {
     }
   }
 
+  const [boardName, setBoardName] = useState('');
+  const [boardUrl, setBoardUrl] = useState('');
+  const [userBag, setUserBag] = useState<Record<string, unknown>>({});
+
   useEffect(() => {
-    monday.get('context').then((r: any) => {
+    monday.get('context').then(async (r: any) => {
       setCtx(r.data);
       if (r.data?.boardId) void loadLogs(String(r.data.boardId));
+      // Board View context doesn't always carry boardName; fetch it so
+      // {board.name} resolves for free-form quick sends.
+      try {
+        const bq: any = await monday.api(
+          'query($ids:[ID!]) { boards(ids:$ids) { id name url } }',
+          { variables: { ids: [String(r.data?.boardId ?? '')] } },
+        );
+        setBoardName(String(bq?.data?.boards?.[0]?.name ?? ''));
+        setBoardUrl(String(bq?.data?.boards?.[0]?.url ?? ''));
+      } catch { /* ignore */ }
+      setUserBag(await fetchMe());
     });
     void (async () => {
       try {
@@ -68,28 +86,51 @@ export default function BoardView() {
     setBody(t?.body ?? '');
   }
 
+  const sendLockRef = useRef(false);
+
   async function doSend() {
+    if (sendLockRef.current) return;
+    sendLockRef.current = true;
     setSending(true);
     setMsg('');
     try {
+      await prewarm();
       const numbers = [...new Set(
         phone.split(/[,;\s]+/).map((n) => n.trim()).filter(Boolean)
       )];
       const targets = numbers.map((n) => ({
         phoneRaw: n,
-        ctx: { item: {}, columns: {}, board: { name: ctx?.boardName ?? '' }, user: {} },
+        ctx: {
+          item: {},
+          columns: {},
+          board: {
+            id: String(ctx?.boardId ?? ''),
+            name: boardName || String((ctx as any)?.boardName ?? ''),
+            url: boardUrl,
+          },
+          user: (() => {
+            const ctxName = String((ctx as any)?.user?.name ?? '');
+            const merged = { ...userBag };
+            if (ctxName && !merged.name) merged.name = ctxName;
+            return merged;
+          })(),
+        },
         boardId: String(ctx?.boardId ?? ''),
       }));
-      const r = await api<{ sent: number; skipped: number; failed: number }>('/api/send', {
+      const r = await api<{ sent: number; skipped: number; failed: number; placeholderWarnings?: string[] }>('/api/send', {
         method: 'POST',
         body: JSON.stringify({ source: 'bulk', body, targets }),
       });
-      setMsg(`Sent ${r.sent}, skipped ${r.skipped}, failed ${r.failed}`);
+      const warn = r.placeholderWarnings && r.placeholderWarnings.length
+        ? ` · empty: ${r.placeholderWarnings.join(', ')}`
+        : '';
+      setMsg(`Sent ${r.sent}, skipped ${r.skipped}, failed ${r.failed}${warn}`);
       if (r.sent > 0) reportValueCreated();
       if (ctx?.boardId) await loadLogs(String(ctx.boardId));
     } catch (e) {
       setErr('Send failed: ' + String(e));
     } finally {
+      sendLockRef.current = false;
       setSending(false);
     }
   }
@@ -110,10 +151,19 @@ export default function BoardView() {
         <div className="kwt-card" style={{ maxWidth: 640 }}>
           <div className="kwt-field">
             <label className="kwt-label">To</label>
-            <input className="kwt-input" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+965…" />
+            <input className="kwt-input" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="96598765432, 96591234567 .." />
           </div>
           <div className="kwt-field">
-            <label className="kwt-label">Template</label>
+            <div className="kwt-row kwt-row--between" style={{ marginBottom: 6 }}>
+              <label className="kwt-label" style={{ margin: 0 }}>Template</label>
+              <NewTemplateButton
+                onCreated={(t) => {
+                  setTmpls((xs) => [...xs, t]);
+                  setTid(t.id);
+                  setBody(t.body);
+                }}
+              />
+            </div>
             <select className="kwt-select" value={tid} onChange={(e) => pickTemplate(e.target.value)}>
               <option value="">(pick template)</option>
               {tmpls.map((t) => (
@@ -122,11 +172,14 @@ export default function BoardView() {
             </select>
           </div>
           <div className="kwt-field">
-            <label className="kwt-label">Message</label>
+            <div className="kwt-row" style={{ marginBottom: 6 }}>
+              <label className="kwt-label" style={{ margin: 0 }}>Message</label>
+              <PlaceholdersHelp />
+            </div>
             <textarea className="kwt-textarea" value={body} onChange={(e) => setBody(e.target.value)} rows={3} />
             <div className="kwt-row kwt-mt-3" style={{ gap: 8 }}>
               <span className={'kwt-counter' + (smsCount.unicode ? ' kwt-counter--unicode' : '')}>
-                {smsCount.count} chars · {smsCount.pages} page{smsCount.pages === 1 ? '' : 's'} · {smsCount.unicode ? 'Arabic (70/page)' : 'English (160/page)'}
+                {smsCount.count} chars · {smsCount.pages} page{smsCount.pages === 1 ? '' : 's'} · {smsCount.unicode ? 'Arabic' : 'English'}
               </span>
             </div>
           </div>
@@ -134,6 +187,9 @@ export default function BoardView() {
             {sending ? 'Sending…' : 'Send SMS'}
           </button>
           {msg && <div className="kwt-alert kwt-mt-3">{msg}</div>}
+          <div className="kwt-hint" style={{ background: '#fff4e0', color: '#b66200', padding: '8px 12px', borderRadius: 6, marginTop: 14, fontSize: 12 }}>
+            Board-level quick send: <code>{`{item.*}`}</code> and <code>{`{column.*}`}</code> placeholders have no item to resolve against and will substitute to empty.
+          </div>
         </div>
       </section>
 
@@ -145,9 +201,9 @@ export default function BoardView() {
             <tr>
               <th>Time</th>
               <th>To</th>
-              <th>Status</th>
               <th>Body</th>
               <th>Source</th>
+              <th>Status</th>
             </tr>
           </thead>
           <tbody>
@@ -155,9 +211,9 @@ export default function BoardView() {
               <tr key={l.logId}>
                 <td>{new Date(l.timestamp).toLocaleString()}</td>
                 <td>{l.to}</td>
-                <td><span className={statusPill(l.status)}>{l.status}</span></td>
-                <td>{l.body.slice(0, 80)}{l.body.length > 80 ? '…' : ''}</td>
+                <td title={l.body} style={{ cursor: l.body.length > 80 ? 'help' : 'default' }}>{l.body.slice(0, 80)}{l.body.length > 80 ? '…' : ''}</td>
                 <td>{l.source}</td>
+                <td><span className={statusPill(l.status)}>{l.status}</span></td>
               </tr>
             ))}
             {rows.length === 0 && <tr><td colSpan={5} className="kwt-empty">No messages yet for this board.</td></tr>}

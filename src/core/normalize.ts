@@ -20,8 +20,17 @@ const PREFIX_TO_CC: Record<string, CountryCode> = {
   '968': 'OM',
 };
 
+// Arabic-Indic (U+0660-U+0669) and Eastern Arabic-Indic / Persian
+// (U+06F0-U+06F9) digit ranges; fold to ASCII before the strip.
+function foldDigits(s: string): string {
+  return s.replace(/[\u0660-\u0669\u06F0-\u06F9]/g, (ch) => {
+    const code = ch.charCodeAt(0);
+    return String(code >= 0x06F0 ? code - 0x06F0 : code - 0x0660);
+  });
+}
+
 function stripSep(s: string): string {
-  return s.replace(/[^\d+]/g, '');
+  return foldDigits(s).replace(/[^\d+]/g, '');
 }
 
 function tryParse(raw: string, cc: CountryCode): { e164: string; mobile: boolean } | null {
@@ -67,7 +76,11 @@ export function normalize(
   const withDefault = tryParse('+' + defaultPrefix + national, defaultCC);
   if (withDefault && withDefault.mobile) return { ok: true, e164: withDefault.e164 };
 
-  // Smart fallback: try other countries in coverage (reverse order for longer prefixes first)
+  // Fallback: try other countries in coverage. If one or more match, pick
+  // the first valid mobile. Prior behaviour rejected on ambiguity which made
+  // typical bare national GCC numbers (valid in multiple countries) fail;
+  // first-match is opinionated but predictable and matches how humans read
+  // the coverage list.
   const matches = coverage
     .filter((c) => c.prefix !== defaultPrefix)
     .reverse()
@@ -77,11 +90,10 @@ export function normalize(
       return { parsed, prefix: c.prefix };
     })
     .filter((x) => x.parsed && x.parsed.mobile);
-  if (matches.length === 1) {
+  if (matches.length > 0) {
     return { ok: true, e164: matches[0].parsed!.e164 };
   }
 
-  // If default country parse failed, return that failure
   if (!withDefault) return { ok: false, reason: 'invalid-for-default-country' };
   return { ok: false, reason: 'not-mobile' };
 }

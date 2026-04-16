@@ -10,7 +10,7 @@ export default function AccountSettings() {
   return (
     <div className="kwtsms-settings">
       <nav className="kwtsms-anchors">
-        <a href="#connect">Connect</a>
+        <a href="#connect">Login</a>
         <a href="#defaults">Defaults</a>
         <a href="#templates">Templates</a>
         <a href="#logs">Logs</a>

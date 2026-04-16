@@ -2,55 +2,56 @@ import React, { useEffect, useState } from 'react';
 import mondaySdk from 'monday-sdk-js';
 import History from './History';
 import Composer from './Composer';
+import { buildSingleItemSources, PhoneSource } from '../../utils/phoneSources';
+import { ITEM_CORE_FIELDS, buildItemBag } from '../../utils/templateContext';
 
 const monday = mondaySdk();
 
 interface ItemData {
   id: string;
   name: string;
-  boardName: string;
   columns: Record<string, string>;
-  phoneColumnId: string;
-  phoneColumnValue: string;
+  phoneSources: PhoneSource[];
+  itemBag: Record<string, unknown>;
+  boardBag: Record<string, unknown>;
 }
 
 async function fetchItem(itemId: string): Promise<ItemData | null> {
   if (!itemId) return null;
   const query = `query($id:[ID!]) {
     items(ids:$id) {
-      id
-      name
-      board { id name }
+      ${ITEM_CORE_FIELDS}
       column_values {
         id
         text
         type
         column { title }
         ... on PhoneValue { phone }
+        ... on PeopleValue { persons_and_teams { id kind } }
       }
     }
   }`;
   const r: any = await monday.api(query, { variables: { id: [itemId] } });
   const it = r?.data?.items?.[0];
   if (!it) return null;
+
   const columns: Record<string, string> = {};
-  let phoneColumnId = '';
-  let phoneColumnValue = '';
   for (const cv of it.column_values ?? []) {
     const title = cv.column?.title ?? cv.id;
     columns[title] = cv.text ?? '';
-    if (cv.type === 'phone' && !phoneColumnId) {
-      phoneColumnId = cv.id;
-      phoneColumnValue = cv.phone ?? cv.text ?? '';
-    }
   }
+  const phoneSources = await buildSingleItemSources({ column_values: it.column_values });
   return {
     id: String(it.id),
     name: it.name,
-    boardName: it.board?.name ?? '',
     columns,
-    phoneColumnId,
-    phoneColumnValue,
+    phoneSources,
+    itemBag: buildItemBag(it),
+    boardBag: {
+      id: String(it.board?.id ?? ''),
+      name: it.board?.name ?? '',
+      url: it.board?.url ?? '',
+    },
   };
 }
 
@@ -97,10 +98,10 @@ export default function ItemView() {
       <Composer
         itemId={itemId}
         boardId={boardId}
-        phone={item?.phoneColumnValue ?? ''}
+        phoneSources={item?.phoneSources ?? []}
         columns={item?.columns ?? {}}
-        itemName={item?.name ?? ''}
-        boardName={item?.boardName ?? ''}
+        itemBag={item?.itemBag ?? {}}
+        boardBag={item?.boardBag ?? {}}
         onSent={() => setRefreshKey((k) => k + 1)}
       />
       <div key={refreshKey}>

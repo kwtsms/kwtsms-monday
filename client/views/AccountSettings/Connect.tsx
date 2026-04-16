@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { api } from '../../api/client';
+import { api, prewarm } from '../../api/client';
 
 interface Settings {
   connected: boolean;
@@ -14,6 +14,7 @@ export default function Connect() {
   const [msg, setMsg] = useState('');
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
+  const [reloading, setReloading] = useState(false);
 
   async function load() {
     try {
@@ -36,7 +37,7 @@ export default function Connect() {
       });
       await load();
     } catch {
-      setMsg('Could not connect. Check your API username and password.');
+      setMsg('Could not log in. Check your API username and password.');
     } finally {
       setBusy(false);
     }
@@ -44,6 +45,20 @@ export default function Connect() {
   async function disconnect() {
     await api('/api/settings/disconnect', { method: 'POST' });
     await load();
+  }
+  async function reload() {
+    setReloading(true);
+    setMsg('');
+    try {
+      await prewarm();
+      await api('/api/settings/reload', { method: 'POST' });
+      await load();
+      setMsg('Reloaded · ' + new Date().toLocaleTimeString());
+    } catch (e) {
+      setMsg('Reload failed: ' + String(e));
+    } finally {
+      setReloading(false);
+    }
   }
 
   if (err) return (
@@ -56,7 +71,7 @@ export default function Connect() {
   return (
     <div>
       <div className="kwt-row kwt-row--between">
-        <h2>Connect</h2>
+        <h2>Login</h2>
         <a href="https://www.kwtsms.com/login" target="_blank" rel="noreferrer" className="kwt-btn kwt-btn--ghost kwt-btn--sm">
           kwtSMS Dashboard
           <svg width="12" height="12" viewBox="0 0 16 16" fill="none" style={{ marginLeft: 4 }} aria-hidden="true">
@@ -81,8 +96,21 @@ export default function Connect() {
                 <dd>{s.balance.syncedAt ? new Date(s.balance.syncedAt).toLocaleString() : 'n/a'}</dd>
               </dl>
             </div>
-            <button className="kwt-btn kwt-btn--danger" onClick={disconnect}>Disconnect</button>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button className="kwt-btn kwt-btn--ghost" onClick={reload} disabled={reloading}>
+                {reloading ? 'Reloading…' : 'Reload'}
+              </button>
+              <button className="kwt-btn kwt-btn--danger" onClick={disconnect}>Logout</button>
+            </div>
           </div>
+          {msg && (
+            <div
+              className={'kwt-alert kwt-mt-3 ' + (msg.startsWith('Reload failed') ? 'kwt-alert--danger' : '')}
+              style={{ fontSize: 13 }}
+            >
+              {msg}
+            </div>
+          )}
         </div>
       ) : (
         <div className="kwt-card">
@@ -95,7 +123,7 @@ export default function Connect() {
             <input id="kwt-p" className="kwt-input" type="password" placeholder="••••••••" value={p} onChange={(e) => setP(e.target.value)} />
           </div>
           <button className="kwt-btn kwt-btn--primary" onClick={connect} disabled={!u || !p || busy}>
-            {busy ? 'Connecting…' : 'Connect'}
+            {busy ? 'Logging in…' : 'Login'}
           </button>
           {msg && <div className="kwt-alert kwt-alert--danger kwt-mt-3">{msg}</div>}
         </div>

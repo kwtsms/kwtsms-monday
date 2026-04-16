@@ -5,7 +5,7 @@ import DashboardWidget from './views/DashboardWidget';
 import BoardMenuBulk from './views/BoardMenuBulk/Modal';
 import SendOne from './views/ItemAction/SendOne';
 import BoardView from './views/BoardView';
-import { isViewOnly } from './api/client';
+import { isViewOnly, prewarm } from './api/client';
 
 function ViewerBlock() {
   return (
@@ -23,6 +23,11 @@ export default function App() {
   const [viewOnly, setViewOnly] = useState<boolean | null>(null);
 
   useEffect(() => {
+    // Fire prewarm immediately on iframe mount so any subsequent GET (logs,
+    // templates, settings) lands on a warm Cloud Run instance. GET retries
+    // on 503 with 1s/3s/6s backoff, so by the time this resolves the SDK
+    // auth handshake is paid.
+    void prewarm();
     isViewOnly().then(setViewOnly);
   }, []);
 

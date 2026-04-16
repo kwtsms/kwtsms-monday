@@ -1,17 +1,14 @@
-// In-memory fallback for local dev and integration tests.
-// We detect monday-code via K_SERVICE (Google Cloud Run marker the runtime sets).
-// process.env.MONDAY_STORAGE_TOKEN is NOT present in monday-code, so never use it
-// as a selector. In local/CI with K_SERVICE unset, use an in-memory Map; in
-// monday-code, use the real Storage. TTL in memory mode is honoured via setTimeout.
-
-// Lazy-import the SDK so local dev (USE_MEMORY=true) never loads the SDK's
-// heavy Google Cloud transitive deps. Avoids a 15-20s server boot penalty
-// on WSL and keeps tests fast.
-type StorageLike = {
-  get(key: string): Promise<{ value?: unknown } | null>;
-  set(key: string, value: unknown, opts?: { ttl?: number }): Promise<void>;
-  delete(key: string): Promise<void>;
-};
+// Key-value storage for the app. In monday-code we route everything through
+// the SDK's SecureStorage - it authenticates via GCP workload identity so no
+// per-request JWT has to be threaded through the call graph. The plain
+// Storage class needs the session JWT as an access token and the token we get
+// from monday.get('sessionToken') is not accepted by the apps-storage
+// backend, so SecureStorage is the one reliable persistence layer we have.
+//
+// The SDK is detected via K_SERVICE (same check the SDK uses internally in
+// isLocalEnvironment). Outside monday-code we keep an in-memory Map so local
+// dev and tests don't load the heavy Google Cloud deps.
+import { getSecureStorage } from './secure-client';
 
 const USE_MEMORY = !process.env.K_SERVICE;
 const memory: Map<string, unknown> = new Map();
@@ -34,31 +31,21 @@ function memDelete(key: string): void {
   memory.delete(key);
 }
 
-let _storage: StorageLike | null = null;
-function getStorage(): StorageLike {
-  if (!_storage) {
-    // Dynamic require keeps the SDK out of the module load graph in dev.
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const { Storage } = require('@mondaycom/apps-sdk');
-    _storage = new Storage(process.env.MONDAY_STORAGE_TOKEN ?? '') as StorageLike;
-  }
-  return _storage;
-}
-
 export async function kvGet<T>(key: string): Promise<T | null> {
   if (USE_MEMORY) return memGet<T>(key);
-  const r = await getStorage().get(key);
-  return (r?.value as T) ?? null;
+  const r = await getSecureStorage().get<T>(key);
+  return r ?? null;
 }
 
-export async function kvSet(key: string, value: unknown, ttlSec?: number): Promise<void> {
-  if (USE_MEMORY) { memSet(key, value, ttlSec); return; }
-  await getStorage().set(key, value as any, ttlSec ? { ttl: ttlSec } : undefined);
+export async function kvSet(key: string, value: unknown, _ttlSec?: number): Promise<void> {
+  if (USE_MEMORY) { memSet(key, value, _ttlSec); return; }
+  // SecureStorage has no TTL. Caller-supplied ttlSec is ignored in production.
+  await getSecureStorage().set(key, value as any);
 }
 
 export async function kvDelete(key: string): Promise<void> {
   if (USE_MEMORY) { memDelete(key); return; }
-  await getStorage().delete(key);
+  await getSecureStorage().delete(key);
 }
 
 export async function kvList(prefix: string): Promise<string[]> {

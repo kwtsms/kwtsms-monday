@@ -19,7 +19,6 @@ export interface AccountConfig {
   defaultCountryPrefix: string;
   testMode: boolean;
   globalEnabled: boolean;
-  debugLogs: boolean;
   notifRecipients: string[];
   notifEvents: NotifEvents;
   notifState: NotifState;
@@ -35,7 +34,6 @@ export const DEFAULT_CONFIG: AccountConfig = {
   defaultCountryPrefix: '965',
   testMode: false,
   globalEnabled: true,
-  debugLogs: false,
   notifRecipients: [],
   notifEvents: { zeroBalance: true, gatewayOffline: true },
   notifState: { lastZeroBalanceAt: 0, lastGatewayOfflineAt: 0 },

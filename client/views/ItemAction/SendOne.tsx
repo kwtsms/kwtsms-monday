@@ -1,35 +1,35 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import mondaySdk from 'monday-sdk-js';
-import { api, reportValueCreated } from '../../api/client';
+import { api, prewarm, reportValueCreated } from '../../api/client';
 import { countSms } from '../../utils/smsCount';
+import { buildSingleItemSources, PhoneSource } from '../../utils/phoneSources';
+import { ITEM_CORE_FIELDS, buildItemBag, fetchMe } from '../../utils/templateContext';
+import NewTemplateButton from '../../components/NewTemplateButton';
+import PlaceholdersHelp from '../../components/PlaceholdersHelp';
 
 const monday = mondaySdk();
-
-interface PhoneCol {
-  id: string;
-  title: string;
-  value: string;
-}
 
 interface ItemData {
   id: string;
   name: string;
   columns: Record<string, string>;
-  phoneColumns: PhoneCol[];
+  phoneSources: PhoneSource[];
+  itemBag: Record<string, unknown>;
+  boardBag: Record<string, unknown>;
 }
 
 async function fetchItem(itemId: string): Promise<ItemData | null> {
   if (!itemId) return null;
   const query = `query($id:[ID!]) {
     items(ids:$id) {
-      id
-      name
+      ${ITEM_CORE_FIELDS}
       column_values {
         id
         text
         type
         column { title }
         ... on PhoneValue { phone }
+        ... on PeopleValue { persons_and_teams { id kind } }
       }
     }
   }`;
@@ -37,15 +37,23 @@ async function fetchItem(itemId: string): Promise<ItemData | null> {
   const it = r?.data?.items?.[0];
   if (!it) return null;
   const columns: Record<string, string> = {};
-  const phoneColumns: PhoneCol[] = [];
   for (const cv of it.column_values ?? []) {
     const title = cv.column?.title ?? cv.id;
     columns[title] = cv.text ?? '';
-    if (cv.type === 'phone') {
-      phoneColumns.push({ id: cv.id, title, value: cv.phone ?? cv.text ?? '' });
-    }
   }
-  return { id: String(it.id), name: it.name, columns, phoneColumns };
+  const phoneSources = await buildSingleItemSources({ column_values: it.column_values });
+  return {
+    id: String(it.id),
+    name: it.name,
+    columns,
+    phoneSources,
+    itemBag: buildItemBag(it),
+    boardBag: {
+      id: String(it.board?.id ?? ''),
+      name: it.board?.name ?? '',
+      url: it.board?.url ?? '',
+    },
+  };
 }
 
 export default function SendOne() {
@@ -54,12 +62,13 @@ export default function SendOne() {
   const [tmpls, setTmpls] = useState<any[]>([]);
   const [tid, setTid] = useState('');
   const [body, setBody] = useState('');
-  const [phoneSource, setPhoneSource] = useState<'column' | 'custom'>('column');
-  const [selectedPhoneCol, setSelectedPhoneCol] = useState<string>('');
+  const [phoneMode, setPhoneMode] = useState<'item' | 'custom'>('item');
+  const [sourceId, setSourceId] = useState<string>('');
   const [customPhone, setCustomPhone] = useState('');
   const [sending, setSending] = useState(false);
   const [msg, setMsg] = useState('');
   const [err, setErr] = useState('');
+  const [userBag, setUserBag] = useState<Record<string, unknown>>({});
 
   useEffect(() => {
     monday.get('context').then(async (r: any) => {
@@ -69,10 +78,10 @@ export default function SendOne() {
         if (id) {
           const data = await fetchItem(id);
           setItem(data);
-          if (data && data.phoneColumns.length > 0) {
-            setSelectedPhoneCol(data.phoneColumns[0].id);
+          if (data && data.phoneSources.length > 0) {
+            setSourceId(data.phoneSources[0].id);
           } else {
-            setPhoneSource('custom');
+            setPhoneMode('custom');
           }
         }
       } catch (e) {
@@ -86,6 +95,10 @@ export default function SendOne() {
         setErr('Failed to load templates: ' + String(e));
       }
     })();
+    void (async () => {
+      const me = await fetchMe();
+      setUserBag(me);
+    })();
   }, []);
 
   function pickTemplate(id: string) {
@@ -94,18 +107,22 @@ export default function SendOne() {
     setBody(t?.body ?? '');
   }
 
-  const resolvedPhone = (() => {
-    if (phoneSource === 'custom') return customPhone.trim();
-    const pc = item?.phoneColumns.find((p) => p.id === selectedPhoneCol);
-    return pc?.value ?? '';
-  })();
+  const resolvedPhone = useMemo(() => {
+    if (phoneMode === 'custom') return customPhone.trim();
+    return item?.phoneSources.find((s) => s.id === sourceId)?.value ?? '';
+  }, [phoneMode, customPhone, item, sourceId]);
+
+  const sendLockRef = useRef(false);
 
   async function doSend() {
+    if (sendLockRef.current) return;
+    sendLockRef.current = true;
     setSending(true);
     setMsg('');
     setErr('');
     try {
-      const r = await api<{ sent: number; failed: number; skipped: number }>('/api/send', {
+      await prewarm();
+      const r = await api<{ sent: number; failed: number; skipped: number; placeholderWarnings?: string[] }>('/api/send', {
         method: 'POST',
         body: JSON.stringify({
           source: 'item_view',
@@ -114,10 +131,10 @@ export default function SendOne() {
             {
               phoneRaw: resolvedPhone,
               ctx: {
-                item: { id: item?.id ?? '', name: item?.name ?? '' },
+                item: item?.itemBag ?? {},
                 columns: item?.columns ?? {},
-                board: { name: ctx?.boardName ?? '' },
-                user: {},
+                board: item?.boardBag ?? {},
+                user: userBag,
               },
               itemId: item?.id ?? String(ctx?.itemId ?? ''),
               boardId: String(ctx?.boardId ?? ''),
@@ -125,18 +142,23 @@ export default function SendOne() {
           ],
         }),
       });
-      setMsg(`Sent ${r.sent}, skipped ${r.skipped}, failed ${r.failed}`);
+      const warn = r.placeholderWarnings && r.placeholderWarnings.length
+        ? ` · empty: ${r.placeholderWarnings.join(', ')}`
+        : '';
+      setMsg(`Sent ${r.sent}, skipped ${r.skipped}, failed ${r.failed}${warn}`);
       if (r.sent > 0) reportValueCreated();
     } catch (e) {
       setErr('Send failed: ' + String(e));
     } finally {
       setSending(false);
+      sendLockRef.current = false;
     }
   }
 
   if (!ctx) return <div className="kwt-loading">Loading…</div>;
 
   const smsCount = countSms(body);
+  const hasItemSources = (item?.phoneSources.length ?? 0) > 0;
 
   return (
     <div className="kwt-panel">
@@ -151,35 +173,35 @@ export default function SendOne() {
 
       <div className="kwt-field">
         <label className="kwt-label">To</label>
-        {item && item.phoneColumns.length > 0 && (
+        {hasItemSources && (
           <div className="kwt-radio-group">
             <label>
               <input
                 type="radio"
-                checked={phoneSource === 'column'}
-                onChange={() => setPhoneSource('column')}
+                checked={phoneMode === 'item'}
+                onChange={() => setPhoneMode('item')}
               />
-              Phone column
+              From this item
             </label>
             <label>
               <input
                 type="radio"
-                checked={phoneSource === 'custom'}
-                onChange={() => setPhoneSource('custom')}
+                checked={phoneMode === 'custom'}
+                onChange={() => setPhoneMode('custom')}
               />
               Custom number
             </label>
           </div>
         )}
-        {phoneSource === 'column' && item && item.phoneColumns.length > 0 ? (
+        {phoneMode === 'item' && hasItemSources ? (
           <select
             className="kwt-select"
-            value={selectedPhoneCol}
-            onChange={(e) => setSelectedPhoneCol(e.target.value)}
+            value={sourceId}
+            onChange={(e) => setSourceId(e.target.value)}
           >
-            {item.phoneColumns.map((pc) => (
-              <option key={pc.id} value={pc.id}>
-                {pc.title}: {pc.value || '(empty)'}
+            {item!.phoneSources.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.label} — {s.value}
               </option>
             ))}
           </select>
@@ -191,13 +213,27 @@ export default function SendOne() {
             placeholder="+965…"
           />
         )}
+        {!hasItemSources && item && (
+          <div className="kwt-hint" style={{ color: 'var(--c-ink-500)' }}>
+            No Phone column or assigned Person with a phone on this item.
+          </div>
+        )}
         <div className="kwt-hint">
           Sending to: <b>{resolvedPhone || <span style={{ color: 'var(--c-danger)' }}>(none)</span>}</b>
         </div>
       </div>
 
       <div className="kwt-field">
-        <label className="kwt-label">Template</label>
+        <div className="kwt-row kwt-row--between" style={{ marginBottom: 6 }}>
+          <label className="kwt-label" style={{ margin: 0 }}>Template</label>
+          <NewTemplateButton
+            onCreated={(t) => {
+              setTmpls((xs) => [...xs, t]);
+              setTid(t.id);
+              setBody(t.body);
+            }}
+          />
+        </div>
         <select className="kwt-select" value={tid} onChange={(e) => pickTemplate(e.target.value)}>
           <option value="">(pick template)</option>
           {tmpls.map((t) => (
@@ -209,11 +245,14 @@ export default function SendOne() {
       </div>
 
       <div className="kwt-field">
-        <label className="kwt-label">Message</label>
+        <div className="kwt-row" style={{ marginBottom: 6 }}>
+          <label className="kwt-label" style={{ margin: 0 }}>Message</label>
+          <PlaceholdersHelp />
+        </div>
         <textarea className="kwt-textarea" value={body} onChange={(e) => setBody(e.target.value)} rows={4} />
         <div className="kwt-row kwt-mt-3" style={{ gap: 8 }}>
           <span className={'kwt-counter' + (smsCount.unicode ? ' kwt-counter--unicode' : '')}>
-            {smsCount.count} chars · {smsCount.pages} page{smsCount.pages === 1 ? '' : 's'} · {smsCount.unicode ? 'Arabic (70/page)' : 'English (160/page)'}
+            {smsCount.count} chars · {smsCount.pages} page{smsCount.pages === 1 ? '' : 's'} · {smsCount.unicode ? 'Arabic' : 'English'}
           </span>
         </div>
       </div>

@@ -71,7 +71,13 @@ export default function Templates() {
             rows={4}
           />
           <div className="kwt-hint">
-            Placeholders: <code>{`{item.name}`}</code>, <code>{`{item.id}`}</code>, <code>{`{column.<Title>}`}</code>, <code>{`{user.name}`}</code>, <code>{`{board.name}`}</code>
+            Placeholders:{' '}
+            <code>{`{item.name}`}</code>, <code>{`{item.id}`}</code>, <code>{`{item.url}`}</code>, <code>{`{item.group}`}</code>, <code>{`{item.created_at}`}</code>, <code>{`{item.updated_at}`}</code>, <code>{`{item.creator_name}`}</code>, <code>{`{item.creator_email}`}</code>,{' '}
+            <code>{`{column.<Title>}`}</code>,{' '}
+            <code>{`{user.name}`}</code>, <code>{`{user.email}`}</code>, <code>{`{user.phone}`}</code>, <code>{`{user.title}`}</code>, <code>{`{user.location}`}</code>,{' '}
+            <code>{`{board.name}`}</code>, <code>{`{board.url}`}</code>,{' '}
+            <code>{`{date}`}</code>, <code>{`{time}`}</code>.{' '}
+            Missing values substitute to empty.
           </div>
         </div>
         <button className="kwt-btn kwt-btn--primary" onClick={add} disabled={busy}>

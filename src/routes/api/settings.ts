@@ -23,7 +23,6 @@ router.put('/', mondayAuth, async (req: AuthedRequest, res) => {
     'defaultCountryPrefix',
     'testMode',
     'globalEnabled',
-    'debugLogs',
     'notifRecipients',
     'notifEvents',
   ];
@@ -60,6 +59,33 @@ router.post('/connect', mondayAuth, async (req: AuthedRequest, res) => {
     res.json({ ok: true });
   } catch {
     res.status(401).json({ error: 'generic' });
+  }
+});
+
+// Re-sync balance / sender IDs / coverage using stored credentials. Called
+// by the Reload button on the Connect card so the user can refresh gateway
+// state without re-entering their password.
+router.post('/reload', mondayAuth, async (req: AuthedRequest, res) => {
+  const creds = await getKwtCreds(req.monday!.accountId);
+  if (!creds) {
+    res.status(400).json({ error: 'not-connected' });
+    return;
+  }
+  try {
+    const [bal, sids, cov] = await Promise.all([
+      client.balance(creds),
+      client.senderIds(creds),
+      client.coverage(creds),
+    ]);
+    const cfg = await getConfig(req.monday!.accountId);
+    cfg.balance = { amount: bal.amount, syncedAt: Date.now() };
+    cfg.senderIds = sids;
+    cfg.coverage = cov;
+    cfg.lastSyncAt = Date.now();
+    await setConfig(req.monday!.accountId, cfg);
+    res.json({ ok: true, balance: cfg.balance, senderIds: sids, coverage: cov });
+  } catch {
+    res.status(502).json({ error: 'gateway' });
   }
 });
 

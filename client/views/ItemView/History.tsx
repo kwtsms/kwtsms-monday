@@ -33,13 +33,18 @@ export default function History({ itemId }: { itemId: string }) {
           {rows.map((r) => (
             <div key={r.logId} style={{ padding: '8px 12px', background: 'var(--c-surface-alt)', borderRadius: 8, border: '1px solid var(--c-border)' }}>
               <div className="kwt-row kwt-row--between">
-                <span className={statusPill(r.status)}>{r.status}</span>
                 <span style={{ fontSize: 12, color: 'var(--c-ink-500)' }}>{new Date(r.timestamp).toLocaleString()}</span>
+                <span className={statusPill(r.status)}>{r.status}</span>
               </div>
+              {(r.statusReason || r.errorCode) && (
+                <div style={{ fontSize: 11, color: 'var(--c-ink-500)', marginTop: 2, fontStyle: 'italic' }}>
+                  {r.statusReason || r.errorCode}{r.errorMsg ? `: ${r.errorMsg}` : ''}
+                </div>
+              )}
               <div style={{ fontSize: 12, color: 'var(--c-ink-500)', marginTop: 4 }}>
                 to {r.to} · via {r.senderId}
               </div>
-              <div style={{ fontSize: 13, marginTop: 4 }}>
+              <div style={{ fontSize: 13, marginTop: 4 }} title={r.body}>
                 {r.body.slice(0, 120)}{r.body.length > 120 ? '…' : ''}
               </div>
             </div>

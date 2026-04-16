@@ -3,9 +3,17 @@ import { getConfig, setConfig } from '../../storage/config-store';
 import { getKwtCreds } from '../../storage/secret-store';
 import { KwtSmsClient } from '../../core/kwtsms-client';
 import { kvList, kvDelete, kvSet } from '../../storage/index';
+import { runWithToken } from '../../core/request-token';
 
 const router = Router();
 const client = new KwtSmsClient();
+
+// Cron calls come from monday-code Scheduled Jobs with an Authorization header
+// the Storage SDK will reuse. Capture it the same way mondayAuth does.
+router.use((req, _res, next) => {
+  const token = (req.headers.authorization ?? '').replace(/^Bearer\s+/, '');
+  runWithToken(token, () => next());
+});
 
 router.post('/sync', async (req, res) => {
   const { accountId } = req.body as { accountId: string };

@@ -3,7 +3,7 @@ import { cleanMessage } from './clean-message';
 import { normalize } from './normalize';
 import { verify } from './verify';
 import { resolveTemplate, TemplateContext } from './template-engine';
-import { dedupKey, seen, mark } from '../storage/dedup-store';
+import { dedupKey } from '../storage/dedup-store';
 import { statusForReason, redactCreds } from './errors';
 import { maybeNotify, isGatewayOfflinePaused } from './notifications';
 import { writeStatus } from './writeback';
@@ -42,6 +42,10 @@ export interface SendResult {
     kwtMsgId?: string;
     error?: string;
   }>;
+  // Placeholder keys that had no value when templates were resolved
+  // anywhere in this batch. Deduplicated across targets. Client surfaces
+  // this so authors know which {foo.bar} tokens ended up empty.
+  placeholderWarnings: string[];
 }
 
 const client = new KwtSmsClient();
@@ -94,7 +98,8 @@ export async function send(
   options: SendOptions,
 ): Promise<SendResult> {
   const cfg = await getConfig(options.accountId);
-  const result: SendResult = { sent: 0, skipped: 0, failed: 0, results: [] };
+  const result: SendResult = { sent: 0, skipped: 0, failed: 0, results: [], placeholderWarnings: [] };
+  const warnSet = new Set<string>();
 
   if (!cfg.globalEnabled || !cfg.connected) {
     for (const t of targets) {
@@ -137,9 +142,11 @@ export async function send(
     status?: { reason: string; label: string };
     dedup?: string;
   }> = [];
+  const batchKeys = new Set<string>();
 
   for (const t of targets) {
     const r = resolveTemplate(options.body, t.ctx);
+    for (const w of r.warnings) warnSet.add(w);
     const c = cleanMessage(r.body);
     if (!c.body) {
       resolved.push({ t, to: t.phoneRaw, body: '', status: { reason: 'empty-message', label: statusForReason('empty-message') } });
@@ -166,11 +173,17 @@ export async function send(
       resolved.push({ t, to: n.e164!, body: c.body, status: { reason: 'no-coverage', label: statusForReason('no-coverage') } });
       continue;
     }
+    // Dedup is per-batch: inside a single send() call, if the same
+    // (phone, body, sender) appears more than once (common in bulk where a
+    // customer is on two rows), send once and mark the repeats as duplicate.
+    // No persistence, no time window - manual follow-up sends to the same
+    // number minutes later are always allowed.
     const key = dedupKey(n.e164!, c.body, senderId);
-    if (await seen(options.accountId, key)) {
+    if (batchKeys.has(key)) {
       resolved.push({ t, to: n.e164!, body: c.body, status: { reason: 'duplicate', label: statusForReason('duplicate') } });
       continue;
     }
+    batchKeys.add(key);
     resolved.push({ t, to: n.e164!, body: c.body, dedup: key });
   }
 
@@ -215,7 +228,6 @@ export async function send(
         });
         clearNetworkFailures();
         if (resp.result === 'OK') {
-          await mark(options.accountId, r.dedup!);
           result.sent++;
           result.results.push({ to: r.to, status: 'Delivered', kwtMsgId: resp.msgId });
           await recordLog(options.accountId, {
@@ -273,6 +285,7 @@ export async function send(
       }
     }
   }
+  result.placeholderWarnings = Array.from(warnSet);
   return result;
 }
 

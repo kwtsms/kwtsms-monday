@@ -1,4 +1,4 @@
-# Claude Code local files
+# Local-only tooling and notes
 .claude/
 CLAUDE.md
 .superpowers/
@@ -31,11 +31,14 @@ coverage/
 # Playwright
 .playwright*
 
-# Tests
+# Tests (local only, never published)
 test/
 tests/
-!tests/**/*.ts
-!tests/**/*.tsx
+jest.config.*
+
+# Remember / handoff notes
+.remember/
+
 dist-client/
 
 # mapps manifest export dump

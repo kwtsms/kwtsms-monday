@@ -62,10 +62,9 @@ export default function GatewayDefaults() {
             <input type="checkbox" checked={!!s.testMode} onChange={(e) => update({ testMode: e.target.checked })} />
             &nbsp;Test mode
           </label>
-          <label>
-            <input type="checkbox" checked={!!s.debugLogs} onChange={(e) => update({ debugLogs: e.target.checked })} />
-            &nbsp;Verbose debug logs
-          </label>
+        </div>
+        <div className="kwt-hint" style={{ marginTop: 8, fontSize: 12, color: 'var(--c-ink-500)' }}>
+          Test mode: message is billed and logged on kwtSMS but never reaches the recipient's handset. Useful for dry-running templates and flows without spamming customers. Test messages can be deleted from your kwtSMS account.
         </div>
       </div>
     </div>

@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { getSecret } from '../core/monday-env';
+import { runWithToken } from '../core/request-token';
 
 // monday session tokens (from monday.get('sessionToken')) are signed with the
 // app's Client Secret. Recipe webhook signatures use the Signing Secret. We
@@ -46,7 +47,7 @@ export function mondayAuth(req: AuthedRequest, res: Response, next: NextFunction
       userId: String((payload as any).userId ?? dat.user_id ?? ''),
       backToUrl: (payload as any).backToUrl,
     };
-    next();
+    runWithToken(token, () => next());
     return;
   }
   const signingTry = verifyWith(token, SIGNING_SECRET);
@@ -58,7 +59,7 @@ export function mondayAuth(req: AuthedRequest, res: Response, next: NextFunction
       userId: String((payload as any).userId ?? dat.user_id ?? ''),
       backToUrl: (payload as any).backToUrl,
     };
-    next();
+    runWithToken(token, () => next());
     return;
   }
   res.status(401).json({ error: 'invalid-token' });
