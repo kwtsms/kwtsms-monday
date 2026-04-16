@@ -61,21 +61,5 @@ export function mondayAuth(req: AuthedRequest, res: Response, next: NextFunction
     next();
     return;
   }
-  const header = (() => {
-    try {
-      return JSON.parse(Buffer.from(token.split('.')[0], 'base64url').toString());
-    } catch {
-      return null;
-    }
-  })();
-  res.status(401).json({
-    error: 'invalid-token',
-    debug: {
-      tokenHeader: header,
-      clientSecretPresent: !!CLIENT_SECRET,
-      signingSecretPresent: !!SIGNING_SECRET,
-      clientSecretErr: clientTry.err,
-      signingSecretErr: signingTry.err,
-    },
-  });
+  res.status(401).json({ error: 'invalid-token' });
 }

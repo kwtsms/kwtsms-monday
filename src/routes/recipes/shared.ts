@@ -44,7 +44,7 @@ export async function runRecipe(
   const { boardId, itemId } = extractBoardAndItem(req.body);
 
   if (!itemId) {
-    console.error('runRecipe: no itemId found in payload', JSON.stringify(req.body).slice(0, 500));
+    console.error('runRecipe: no itemId found in payload fields:', Object.keys(req.body?.payload ?? {}).join(','));
     return;
   }
 

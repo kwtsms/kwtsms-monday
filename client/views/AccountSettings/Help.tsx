@@ -19,7 +19,7 @@ export default function Help() {
         </li>
       </ul>
       <div style={{ marginTop: 'var(--s-5)', paddingTop: 'var(--s-3)', borderTop: '1px solid var(--c-border)', color: 'var(--c-ink-500)', fontSize: 12 }}>
-        Version: v7<br />
+        Version: v8<br />
         Released: 2026-04-16
       </div>
     </div>
