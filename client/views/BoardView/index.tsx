@@ -18,6 +18,13 @@ interface Log {
   boardId?: string;
 }
 
+function statusPill(status: string) {
+  if (status.startsWith('Delivered')) return 'kwt-pill kwt-pill--success';
+  if (status.startsWith('Failed')) return 'kwt-pill kwt-pill--danger';
+  if (status.startsWith('Skipped')) return 'kwt-pill kwt-pill--warn';
+  return 'kwt-pill';
+}
+
 export default function BoardView() {
   const [ctx, setCtx] = useState<any>(null);
   const [rows, setRows] = useState<Log[]>([]);
@@ -88,87 +95,75 @@ export default function BoardView() {
     }
   }
 
-  if (!ctx) return <p style={{ padding: 16 }}>Loading...</p>;
+  if (!ctx) return <div className="kwt-loading">Loading…</div>;
 
   const smsCount = countSms(body);
 
   return (
-    <div style={{ padding: 16, fontFamily: 'system-ui, sans-serif' }}>
-      <h2 style={{ marginTop: 0 }}>kwtSMS - Board activity</h2>
+    <div className="kwtsms-settings">
+      <div className="kwt-brand">
+        <h1>kwtSMS</h1>
+        <span className="kwt-badge">Board activity</span>
+      </div>
 
-      <section style={{ marginTop: 16, paddingBottom: 16, borderBottom: '1px solid #eee' }}>
-        <h3>Quick send</h3>
-        <div>
-          <label>To:</label>
-        </div>
-        <div>
-          <input
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-            placeholder="phone number"
-            style={{ width: 320, padding: 6 }}
-          />
-        </div>
-        <div style={{ marginTop: 8 }}>
-          <label>Template:</label>
-        </div>
-        <div>
-          <select value={tid} onChange={(e) => pickTemplate(e.target.value)} style={{ width: 320, padding: 6 }}>
-            <option value="">(pick template)</option>
-            {tmpls.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.name}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div style={{ marginTop: 8 }}>
-          <label>Message:</label>
-        </div>
-        <div>
-          <textarea value={body} onChange={(e) => setBody(e.target.value)} rows={3} style={{ width: 500, padding: 6 }} />
-        </div>
-        <div style={{ fontSize: 12, color: '#666' }}>
-          {smsCount.count} chars, {smsCount.pages} page{smsCount.pages === 1 ? '' : 's'}
-          {' '}({smsCount.unicode ? 'Unicode 70/page' : 'GSM 160/page'})
-        </div>
-        <div style={{ marginTop: 8 }}>
-          <button onClick={doSend} disabled={!phone || !body || sending}>
-            {sending ? 'Sending...' : 'Send SMS'}
+      <section>
+        <h2>Quick send</h2>
+        <div className="kwt-card" style={{ maxWidth: 640 }}>
+          <div className="kwt-field">
+            <label className="kwt-label">To</label>
+            <input className="kwt-input" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+965…" />
+          </div>
+          <div className="kwt-field">
+            <label className="kwt-label">Template</label>
+            <select className="kwt-select" value={tid} onChange={(e) => pickTemplate(e.target.value)}>
+              <option value="">(pick template)</option>
+              {tmpls.map((t) => (
+                <option key={t.id} value={t.id}>{t.name}</option>
+              ))}
+            </select>
+          </div>
+          <div className="kwt-field">
+            <label className="kwt-label">Message</label>
+            <textarea className="kwt-textarea" value={body} onChange={(e) => setBody(e.target.value)} rows={3} />
+            <div className="kwt-row kwt-mt-3" style={{ gap: 8 }}>
+              <span className={'kwt-counter' + (smsCount.unicode ? ' kwt-counter--unicode' : '')}>
+                {smsCount.count} chars · {smsCount.pages} page{smsCount.pages === 1 ? '' : 's'} · {smsCount.unicode ? 'Unicode (70/page)' : 'GSM (160/page)'}
+              </span>
+            </div>
+          </div>
+          <button className="kwt-btn kwt-btn--primary" onClick={doSend} disabled={!phone || !body || sending}>
+            {sending ? 'Sending…' : 'Send SMS'}
           </button>
+          {msg && <div className="kwt-alert kwt-mt-3">{msg}</div>}
         </div>
-        {msg && <p style={{ marginTop: 8 }}>{msg}</p>}
       </section>
 
-      <section style={{ marginTop: 16 }}>
-        <h3>Recent messages from this board</h3>
-        {err && <p style={{ color: 'crimson' }}>{err}</p>}
-        {rows.length === 0 ? (
-          <p style={{ color: '#888' }}>No messages yet.</p>
-        ) : (
-          <table style={{ borderCollapse: 'collapse', width: '100%' }}>
-            <thead>
-              <tr>
-                <th style={{ textAlign: 'left', padding: 6 }}>Time</th>
-                <th style={{ textAlign: 'left', padding: 6 }}>To</th>
-                <th style={{ textAlign: 'left', padding: 6 }}>Status</th>
-                <th style={{ textAlign: 'left', padding: 6 }}>Body</th>
-                <th style={{ textAlign: 'left', padding: 6 }}>Source</th>
+      <section>
+        <h2>Recent messages from this board</h2>
+        {err && <div className="kwt-alert kwt-alert--danger">{err}</div>}
+        <table className="kwt-table">
+          <thead>
+            <tr>
+              <th>Time</th>
+              <th>To</th>
+              <th>Status</th>
+              <th>Body</th>
+              <th>Source</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((l) => (
+              <tr key={l.logId}>
+                <td>{new Date(l.timestamp).toLocaleString()}</td>
+                <td>{l.to}</td>
+                <td><span className={statusPill(l.status)}>{l.status}</span></td>
+                <td>{l.body.slice(0, 80)}{l.body.length > 80 ? '…' : ''}</td>
+                <td>{l.source}</td>
               </tr>
-            </thead>
-            <tbody>
-              {rows.map((l) => (
-                <tr key={l.logId}>
-                  <td style={{ padding: 6 }}>{new Date(l.timestamp).toLocaleString()}</td>
-                  <td style={{ padding: 6 }}>{l.to}</td>
-                  <td style={{ padding: 6 }}>{l.status}</td>
-                  <td style={{ padding: 6 }}>{l.body.slice(0, 60)}</td>
-                  <td style={{ padding: 6 }}>{l.source}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
+            ))}
+            {rows.length === 0 && <tr><td colSpan={5} className="kwt-empty">No messages yet for this board.</td></tr>}
+          </tbody>
+        </table>
       </section>
     </div>
   );

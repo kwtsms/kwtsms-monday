@@ -22,9 +22,13 @@ async function fetchItem(itemId: string): Promise<ItemData | null> {
   if (!itemId) return null;
   const query = `query($id:[ID!]) {
     items(ids:$id) {
-      id name
+      id
+      name
       column_values {
-        id title text type
+        id
+        text
+        type
+        column { title }
         ... on PhoneValue { phone }
       }
     }
@@ -35,9 +39,10 @@ async function fetchItem(itemId: string): Promise<ItemData | null> {
   const columns: Record<string, string> = {};
   const phoneColumns: PhoneCol[] = [];
   for (const cv of it.column_values ?? []) {
-    columns[cv.title] = cv.text ?? '';
+    const title = cv.column?.title ?? cv.id;
+    columns[title] = cv.text ?? '';
     if (cv.type === 'phone') {
-      phoneColumns.push({ id: cv.id, title: cv.title, value: cv.phone ?? cv.text ?? '' });
+      phoneColumns.push({ id: cv.id, title, value: cv.phone ?? cv.text ?? '' });
     }
   }
   return { id: String(it.id), name: it.name, columns, phoneColumns };
@@ -128,45 +133,48 @@ export default function SendOne() {
     }
   }
 
-  if (!ctx) return <p style={{ padding: 12 }}>Loading...</p>;
+  if (!ctx) return <div className="kwt-loading">Loading…</div>;
 
   const smsCount = countSms(body);
 
   return (
-    <div style={{ padding: 16, fontFamily: 'system-ui, sans-serif' }}>
-      <h3 style={{ marginTop: 0 }}>Send SMS via kwtSMS</h3>
-      {item && <div>Item: <b>{item.name}</b></div>}
-      {err && <p style={{ color: 'crimson' }}>{err}</p>}
+    <div className="kwt-panel">
+      <h3>Send SMS via kwtSMS</h3>
+      {item && (
+        <dl className="kwt-kv">
+          <dt>Item</dt>
+          <dd><b>{item.name}</b></dd>
+        </dl>
+      )}
+      {err && <div className="kwt-alert kwt-alert--danger">{err}</div>}
 
-      <div style={{ marginTop: 12 }}>
-        <label>To:</label>
-      </div>
-      <div>
+      <div className="kwt-field">
+        <label className="kwt-label">To</label>
         {item && item.phoneColumns.length > 0 && (
-          <label style={{ fontSize: 13, marginRight: 12 }}>
-            <input
-              type="radio"
-              checked={phoneSource === 'column'}
-              onChange={() => setPhoneSource('column')}
-            />{' '}
-            Phone column
-          </label>
+          <div className="kwt-radio-group">
+            <label>
+              <input
+                type="radio"
+                checked={phoneSource === 'column'}
+                onChange={() => setPhoneSource('column')}
+              />
+              Phone column
+            </label>
+            <label>
+              <input
+                type="radio"
+                checked={phoneSource === 'custom'}
+                onChange={() => setPhoneSource('custom')}
+              />
+              Custom number
+            </label>
+          </div>
         )}
-        <label style={{ fontSize: 13 }}>
-          <input
-            type="radio"
-            checked={phoneSource === 'custom'}
-            onChange={() => setPhoneSource('custom')}
-          />{' '}
-          Custom number
-        </label>
-      </div>
-      {phoneSource === 'column' && item && item.phoneColumns.length > 0 ? (
-        <div>
+        {phoneSource === 'column' && item && item.phoneColumns.length > 0 ? (
           <select
+            className="kwt-select"
             value={selectedPhoneCol}
             onChange={(e) => setSelectedPhoneCol(e.target.value)}
-            style={{ width: '100%', padding: 6 }}
           >
             {item.phoneColumns.map((pc) => (
               <option key={pc.id} value={pc.id}>
@@ -174,26 +182,22 @@ export default function SendOne() {
               </option>
             ))}
           </select>
-        </div>
-      ) : (
-        <div>
+        ) : (
           <input
+            className="kwt-input"
             value={customPhone}
             onChange={(e) => setCustomPhone(e.target.value)}
-            placeholder="phone number"
-            style={{ width: '100%', padding: 6 }}
+            placeholder="+965…"
           />
+        )}
+        <div className="kwt-hint">
+          Sending to: <b>{resolvedPhone || <span style={{ color: 'var(--c-danger)' }}>(none)</span>}</b>
         </div>
-      )}
-      <div style={{ fontSize: 12, color: '#666', marginTop: 2 }}>
-        Sending to: {resolvedPhone || <span style={{ color: 'crimson' }}>(none)</span>}
       </div>
 
-      <div style={{ marginTop: 12 }}>
-        <label>Template:</label>
-      </div>
-      <div>
-        <select value={tid} onChange={(e) => pickTemplate(e.target.value)} style={{ width: '100%', padding: 6 }}>
+      <div className="kwt-field">
+        <label className="kwt-label">Template</label>
+        <select className="kwt-select" value={tid} onChange={(e) => pickTemplate(e.target.value)}>
           <option value="">(pick template)</option>
           {tmpls.map((t) => (
             <option key={t.id} value={t.id}>
@@ -203,28 +207,20 @@ export default function SendOne() {
         </select>
       </div>
 
-      <div style={{ marginTop: 12 }}>
-        <label>Message:</label>
-      </div>
-      <div>
-        <textarea
-          value={body}
-          onChange={(e) => setBody(e.target.value)}
-          rows={4}
-          style={{ width: '100%', padding: 6 }}
-        />
-      </div>
-      <div style={{ fontSize: 12, color: '#666', marginTop: 4 }}>
-        {smsCount.count} chars, {smsCount.pages} page{smsCount.pages === 1 ? '' : 's'}
-        {' '}({smsCount.unicode ? 'Unicode 70/page' : 'GSM 160/page'})
+      <div className="kwt-field">
+        <label className="kwt-label">Message</label>
+        <textarea className="kwt-textarea" value={body} onChange={(e) => setBody(e.target.value)} rows={4} />
+        <div className="kwt-row kwt-mt-3" style={{ gap: 8 }}>
+          <span className={'kwt-counter' + (smsCount.unicode ? ' kwt-counter--unicode' : '')}>
+            {smsCount.count} chars · {smsCount.pages} page{smsCount.pages === 1 ? '' : 's'} · {smsCount.unicode ? 'Unicode (70/page)' : 'GSM (160/page)'}
+          </span>
+        </div>
       </div>
 
-      <div style={{ marginTop: 12 }}>
-        <button onClick={doSend} disabled={!resolvedPhone || !body || sending}>
-          {sending ? 'Sending...' : 'Send SMS'}
-        </button>
-      </div>
-      {msg && <p style={{ marginTop: 8 }}>{msg}</p>}
+      <button className="kwt-btn kwt-btn--primary" onClick={doSend} disabled={!resolvedPhone || !body || sending}>
+        {sending ? 'Sending…' : 'Send SMS'}
+      </button>
+      {msg && <div className="kwt-alert kwt-mt-3">{msg}</div>}
     </div>
   );
 }

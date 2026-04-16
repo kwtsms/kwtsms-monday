@@ -47,56 +47,64 @@ export default function Templates() {
       setErr('Delete template failed: ' + String(e));
     }
   }
+
   return (
     <div>
       <h2>Templates</h2>
-      <div>
-        <div>
-          <label>Name:</label>
+      <div className="kwt-card">
+        <div className="kwt-field">
+          <label className="kwt-label">Name</label>
+          <input
+            className="kwt-input"
+            placeholder="e.g. Order shipped"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+          />
         </div>
-        <div>
-          <input placeholder="e.g. Order shipped" value={name} onChange={(e) => setName(e.target.value)} />
-        </div>
-        <div style={{ marginTop: 8 }}>
-          <label>Body:</label>
-        </div>
-        <div>
+        <div className="kwt-field">
+          <label className="kwt-label">Body</label>
           <textarea
+            className="kwt-textarea"
             placeholder="Hi {item.name}, your order is {column.Status}."
             value={body}
             onChange={(e) => setBody(e.target.value)}
             rows={4}
-            cols={50}
           />
+          <div className="kwt-hint">
+            Placeholders: <code>{`{item.name}`}</code>, <code>{`{item.id}`}</code>, <code>{`{column.<Title>}`}</code>, <code>{`{user.name}`}</code>, <code>{`{board.name}`}</code>
+          </div>
         </div>
-        <div style={{ marginTop: 8 }}>
-          <button onClick={add} disabled={busy}>{busy ? 'Adding...' : 'Add template'}</button>
-        </div>
-        {err && <p style={{ color: 'crimson' }}>{err}</p>}
+        <button className="kwt-btn kwt-btn--primary" onClick={add} disabled={busy}>
+          {busy ? 'Adding…' : 'Add template'}
+        </button>
+        {err && <div className="kwt-alert kwt-alert--danger kwt-mt-3">{err}</div>}
       </div>
-      <table style={{ marginTop: 16, borderCollapse: 'collapse' }}>
-        <thead>
-          <tr>
-            <th style={{ textAlign: 'left', paddingRight: 16 }}>Name</th>
-            <th style={{ textAlign: 'left', paddingRight: 16 }}>Body</th>
-            <th style={{ textAlign: 'left', paddingRight: 16 }}>Updated</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
-          {list.map((t) => (
-            <tr key={t.id}>
-              <td style={{ paddingRight: 16 }}>{t.name}</td>
-              <td style={{ paddingRight: 16 }}>{t.body.slice(0, 60)}</td>
-              <td style={{ paddingRight: 16 }}>{new Date(t.updatedAt).toLocaleString()}</td>
-              <td><button onClick={() => del(t.id)}>Delete</button></td>
+
+      <div className="kwt-mt-4">
+        <table className="kwt-table">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Body</th>
+              <th>Updated</th>
+              <th></th>
             </tr>
-          ))}
-          {list.length === 0 && (
-            <tr><td colSpan={4} style={{ color: '#888' }}>No templates yet.</td></tr>
-          )}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {list.map((t) => (
+              <tr key={t.id}>
+                <td><b>{t.name}</b></td>
+                <td>{t.body.slice(0, 80)}{t.body.length > 80 ? '…' : ''}</td>
+                <td>{new Date(t.updatedAt).toLocaleString()}</td>
+                <td><button className="kwt-btn kwt-btn--sm kwt-btn--danger" onClick={() => del(t.id)}>Delete</button></td>
+              </tr>
+            ))}
+            {list.length === 0 && (
+              <tr><td colSpan={4} className="kwt-empty">No templates yet.</td></tr>
+            )}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

@@ -18,10 +18,14 @@ async function fetchItem(itemId: string): Promise<ItemData | null> {
   if (!itemId) return null;
   const query = `query($id:[ID!]) {
     items(ids:$id) {
-      id name
+      id
+      name
       board { id name }
       column_values {
-        id title text type
+        id
+        text
+        type
+        column { title }
         ... on PhoneValue { phone }
       }
     }
@@ -33,7 +37,8 @@ async function fetchItem(itemId: string): Promise<ItemData | null> {
   let phoneColumnId = '';
   let phoneColumnValue = '';
   for (const cv of it.column_values ?? []) {
-    columns[cv.title] = cv.text ?? '';
+    const title = cv.column?.title ?? cv.id;
+    columns[title] = cv.text ?? '';
     if (cv.type === 'phone' && !phoneColumnId) {
       phoneColumnId = cv.id;
       phoneColumnValue = cv.phone ?? cv.text ?? '';
@@ -82,13 +87,13 @@ export default function ItemView() {
     };
   }, []);
 
-  if (!ctx) return <p style={{ padding: 12 }}>Loading...</p>;
+  if (!ctx) return <div className="kwt-loading">Loading…</div>;
   const itemId = String(ctx.itemId ?? '');
   const boardId = String(ctx.boardId ?? '');
 
   return (
-    <div style={{ padding: 12 }}>
-      {err && <p style={{ color: 'crimson' }}>{err}</p>}
+    <div className="kwt-panel">
+      {err && <div className="kwt-alert kwt-alert--danger">{err}</div>}
       <Composer
         itemId={itemId}
         boardId={boardId}

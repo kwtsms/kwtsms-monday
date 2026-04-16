@@ -20,7 +20,7 @@ export default function Composer(p: Props) {
   const [msg, setMsg] = useState('');
 
   useEffect(() => {
-    void (async () => setTmpls(await api<any[]>('/api/templates')))();
+    void (async () => setTmpls(await api<any[]>('/api/templates').catch(() => [])))();
   }, []);
 
   function pickTemplate(id: string) {
@@ -53,7 +53,7 @@ export default function Composer(p: Props) {
           ],
         }),
       });
-      setMsg(`sent ${r.sent}, skipped ${r.skipped}, failed ${r.failed}`);
+      setMsg(`Sent ${r.sent}, skipped ${r.skipped}, failed ${r.failed}`);
       p.onSent();
     } finally {
       setSending(false);
@@ -62,30 +62,32 @@ export default function Composer(p: Props) {
 
   const smsCount = countSms(body);
   return (
-    <div>
+    <div className="kwt-card">
       <h3>Send SMS</h3>
-      <div>To: {p.phone || '(no phone column on item)'}</div>
-      <div style={{ marginTop: 12 }}>
-        <label>Template:</label>
-      </div>
-      <div>
-        <select value={tid} onChange={(e) => pickTemplate(e.target.value)}>
+      <dl className="kwt-kv">
+        <dt>To</dt>
+        <dd>{p.phone || <span style={{ color: 'var(--c-danger)' }}>No phone column on item</span>}</dd>
+      </dl>
+      <div className="kwt-field kwt-mt-3">
+        <label className="kwt-label">Template</label>
+        <select className="kwt-select" value={tid} onChange={(e) => pickTemplate(e.target.value)}>
           <option value="">(pick template)</option>
           {tmpls.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
         </select>
       </div>
-      <div style={{ marginTop: 12 }}>
-        <label>Message:</label>
+      <div className="kwt-field">
+        <label className="kwt-label">Message</label>
+        <textarea className="kwt-textarea" value={body} onChange={(e) => setBody(e.target.value)} rows={4} />
+        <div className="kwt-row kwt-mt-3" style={{ gap: 8 }}>
+          <span className={'kwt-counter' + (smsCount.unicode ? ' kwt-counter--unicode' : '')}>
+            {smsCount.count} chars · {smsCount.pages} page{smsCount.pages === 1 ? '' : 's'} · {smsCount.unicode ? 'Unicode (70/page)' : 'GSM (160/page)'}
+          </span>
+        </div>
       </div>
-      <div>
-        <textarea value={body} onChange={(e) => setBody(e.target.value)} rows={4} cols={40} />
-      </div>
-      <div style={{ fontSize: 12, color: '#666' }}>
-        {smsCount.count} chars, {smsCount.pages} page{smsCount.pages === 1 ? '' : 's'}
-        {' '}({smsCount.unicode ? 'Unicode 70/page' : 'GSM 160/page'})
-      </div>
-      <button onClick={doSend} disabled={!p.phone || !body || sending}>Send</button>
-      {msg && <p>{msg}</p>}
+      <button className="kwt-btn kwt-btn--primary kwt-mt-3" onClick={doSend} disabled={!p.phone || !body || sending}>
+        {sending ? 'Sending…' : 'Send SMS'}
+      </button>
+      {msg && <div className="kwt-alert kwt-mt-3">{msg}</div>}
     </div>
   );
 }

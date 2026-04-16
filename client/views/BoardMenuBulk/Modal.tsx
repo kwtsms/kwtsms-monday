@@ -30,10 +30,17 @@ function extractItemIds(ctx: any): string[] {
 
 async function fetchItems(ids: string[]): Promise<Item[]> {
   if (ids.length === 0) return [];
-  const q = `query($ids: [ID!]) {
-    items(ids: $ids) {
-      id name
-      column_values { id title text type }
+  const q = `query($ids:[ID!]) {
+    items(ids:$ids) {
+      id
+      name
+      column_values {
+        id
+        text
+        type
+        column { title }
+        ... on PhoneValue { phone }
+      }
     }
   }`;
   const r: any = await monday.api(q, { variables: { ids } });
@@ -42,8 +49,9 @@ async function fetchItems(ids: string[]): Promise<Item[]> {
     const cols: Record<string, string> = {};
     let phone = '';
     for (const cv of it.column_values ?? []) {
-      cols[cv.title] = cv.text ?? '';
-      if (!phone && (cv.type === 'phone' || /phone/i.test(cv.title))) phone = cv.text ?? '';
+      const title = cv.column?.title ?? cv.id;
+      cols[title] = cv.text ?? '';
+      if (!phone && cv.type === 'phone') phone = cv.phone ?? cv.text ?? '';
     }
     return { id: String(it.id), name: it.name, phone, columns: cols };
   });
@@ -111,70 +119,64 @@ export default function BoardMenuBulk() {
     }
   }
 
-  if (!ctx) return <p style={{ padding: 16 }}>Loading...</p>;
+  if (!ctx) return <div className="kwt-loading">Loading…</div>;
 
   const smsCount = countSms(body);
   const hasPhone = items.filter((i) => i.phone).length;
   const noPhone = items.length - hasPhone;
 
   return (
-    <div style={{ padding: 16, fontFamily: 'system-ui, sans-serif' }}>
+    <div className="kwt-panel">
       <h2 style={{ marginTop: 0 }}>
         Send SMS to {items.length} selected item{items.length === 1 ? '' : 's'}
       </h2>
-      {err && <p style={{ color: 'crimson' }}>{err}</p>}
+      {err && <div className="kwt-alert kwt-alert--danger">{err}</div>}
       {items.length > 0 && noPhone > 0 && (
-        <p style={{ color: '#d97706' }}>
+        <div className="kwt-alert kwt-alert--warn">
           {noPhone} of {items.length} have no phone column value. They will be skipped.
-        </p>
+        </div>
       )}
-      <div style={{ marginTop: 12 }}>
-        <label>Template:</label>
-      </div>
-      <div>
-        <select value={tid} onChange={(e) => pickTemplate(e.target.value)} style={{ width: '100%', padding: 6 }}>
+
+      <div className="kwt-field">
+        <label className="kwt-label">Template</label>
+        <select className="kwt-select" value={tid} onChange={(e) => pickTemplate(e.target.value)}>
           <option value="">(pick template)</option>
           {tmpls.map((t) => (
-            <option key={t.id} value={t.id}>
-              {t.name}
-            </option>
+            <option key={t.id} value={t.id}>{t.name}</option>
           ))}
         </select>
       </div>
-      <div style={{ marginTop: 12 }}>
-        <label>Message:</label>
+
+      <div className="kwt-field">
+        <label className="kwt-label">Message</label>
+        <textarea className="kwt-textarea" value={body} onChange={(e) => setBody(e.target.value)} rows={4} />
+        <div className="kwt-row kwt-mt-3" style={{ gap: 8 }}>
+          <span className={'kwt-counter' + (smsCount.unicode ? ' kwt-counter--unicode' : '')}>
+            {smsCount.count} chars · {smsCount.pages} page{smsCount.pages === 1 ? '' : 's'} · {smsCount.unicode ? 'Unicode (70/page)' : 'GSM (160/page)'}
+          </span>
+        </div>
       </div>
-      <div>
-        <textarea
-          value={body}
-          onChange={(e) => setBody(e.target.value)}
-          rows={4}
-          style={{ width: '100%', padding: 6 }}
-        />
-      </div>
-      <div style={{ fontSize: 12, color: '#666', marginTop: 4 }}>
-        {smsCount.count} chars, {smsCount.pages} page{smsCount.pages === 1 ? '' : 's'}
-        {' '}({smsCount.unicode ? 'Unicode 70/page' : 'GSM 160/page'})
-      </div>
+
       {items.length > 0 && (
         <details style={{ marginTop: 12 }}>
-          <summary>Recipients ({hasPhone}/{items.length} with phone)</summary>
-          <ul style={{ maxHeight: 120, overflow: 'auto', fontSize: 13 }}>
+          <summary style={{ cursor: 'pointer', color: 'var(--c-ink-500)', fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 700 }}>
+            Recipients ({hasPhone} with phone / {items.length} selected)
+          </summary>
+          <ul style={{ maxHeight: 160, overflow: 'auto', fontSize: 13, marginTop: 8, paddingLeft: 16 }}>
             {items.map((it) => (
-              <li key={it.id}>
+              <li key={it.id} style={{ marginBottom: 2 }}>
                 <b>{it.name}</b>{' '}
-                {it.phone ? it.phone : <span style={{ color: 'crimson' }}>(no phone)</span>}
+                {it.phone ? it.phone : <span style={{ color: 'var(--c-danger)' }}>(no phone)</span>}
               </li>
             ))}
           </ul>
         </details>
       )}
-      <div style={{ marginTop: 12 }}>
-        <button onClick={confirmSend} disabled={!body || hasPhone === 0 || sending}>
-          {sending ? 'Sending...' : `Send to ${hasPhone}`}
-        </button>
-      </div>
-      {msg && <p style={{ marginTop: 8 }}>{msg}</p>}
+
+      <button className="kwt-btn kwt-btn--primary kwt-mt-3" onClick={confirmSend} disabled={!body || hasPhone === 0 || sending}>
+        {sending ? 'Sending…' : `Send to ${hasPhone}`}
+      </button>
+      {msg && <div className="kwt-alert kwt-mt-3">{msg}</div>}
     </div>
   );
 }

@@ -12,8 +12,9 @@ export default function Connect() {
   const [u, setU] = useState('');
   const [p, setP] = useState('');
   const [msg, setMsg] = useState('');
-
   const [err, setErr] = useState('');
+  const [busy, setBusy] = useState(false);
+
   async function load() {
     try {
       setErr('');
@@ -27,6 +28,7 @@ export default function Connect() {
 
   async function connect() {
     setMsg('');
+    setBusy(true);
     try {
       await api('/api/settings/connect', {
         method: 'POST',
@@ -35,6 +37,8 @@ export default function Connect() {
       await load();
     } catch {
       setMsg('Could not connect. Check username and password.');
+    } finally {
+      setBusy(false);
     }
   }
   async function disconnect() {
@@ -42,23 +46,53 @@ export default function Connect() {
     await load();
   }
 
-  if (err) return <p style={{ color: 'crimson' }}>Error loading settings: {err}</p>;
-  if (!s) return <p>Loading...</p>;
+  if (err) return (
+    <div className="kwt-alert kwt-alert--danger">
+      <b>Error loading settings:</b> {err}
+    </div>
+  );
+  if (!s) return <div className="kwt-loading">Loading settings…</div>;
+
   return (
     <div>
       <h2>Connect</h2>
       {s.connected ? (
-        <div>
-          <p>Status: Connected. Username: {s.usernameMasked}</p>
-          <p>Balance: {s.balance.amount}</p>
-          <button onClick={disconnect}>Disconnect</button>
+        <div className="kwt-card">
+          <div className="kwt-row kwt-row--between">
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <span className="kwt-pill kwt-pill--success">Connected</span>
+                <span style={{ color: 'var(--c-ink-500)', fontSize: 13 }}>
+                  as <b style={{ color: 'var(--c-ink-900)' }}>{s.usernameMasked}</b>
+                </span>
+              </div>
+              <dl className="kwt-kv kwt-mt-3">
+                <dt>Balance</dt>
+                <dd><b>{s.balance.amount}</b></dd>
+                <dt>Last sync</dt>
+                <dd>{s.balance.syncedAt ? new Date(s.balance.syncedAt).toLocaleString() : '—'}</dd>
+              </dl>
+            </div>
+            <button className="kwt-btn kwt-btn--danger" onClick={disconnect}>Disconnect</button>
+          </div>
         </div>
       ) : (
-        <div>
-          <input placeholder="username" value={u} onChange={(e) => setU(e.target.value)} />
-          <input placeholder="password" type="password" value={p} onChange={(e) => setP(e.target.value)} />
-          <button onClick={connect}>Connect</button>
-          {msg && <p style={{ color: 'crimson' }}>{msg}</p>}
+        <div className="kwt-card">
+          <p style={{ color: 'var(--c-ink-500)', marginTop: 0 }}>
+            Enter your kwtSMS gateway credentials. We validate against the live API before saving.
+          </p>
+          <div className="kwt-field">
+            <label className="kwt-label" htmlFor="kwt-u">Username</label>
+            <input id="kwt-u" className="kwt-input" placeholder="kwtsms username" value={u} onChange={(e) => setU(e.target.value)} />
+          </div>
+          <div className="kwt-field">
+            <label className="kwt-label" htmlFor="kwt-p">Password</label>
+            <input id="kwt-p" className="kwt-input" type="password" placeholder="••••••••" value={p} onChange={(e) => setP(e.target.value)} />
+          </div>
+          <button className="kwt-btn kwt-btn--primary" onClick={connect} disabled={!u || !p || busy}>
+            {busy ? 'Connecting…' : 'Connect'}
+          </button>
+          {msg && <div className="kwt-alert kwt-alert--danger kwt-mt-3">{msg}</div>}
         </div>
       )}
     </div>
