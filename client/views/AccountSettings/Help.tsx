@@ -18,6 +18,9 @@ export default function Help() {
           <a href="https://www.kwtsms.com/support.html" target="_blank" rel="noreferrer">www.kwtsms.com/support.html</a>
         </li>
       </ul>
+      <div style={{ marginTop: 'var(--s-5)', paddingTop: 'var(--s-3)', borderTop: '1px solid var(--c-border)', color: 'var(--c-ink-500)', fontSize: 12 }}>
+        kwtSMS for monday.com · <b>v7</b> · released 2026-04-16
+      </div>
     </div>
   );
 }
