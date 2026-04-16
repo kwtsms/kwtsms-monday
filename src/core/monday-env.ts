@@ -16,12 +16,12 @@ function secrets(): SecretsLike | null {
     try {
       // eslint-disable-next-line @typescript-eslint/no-var-requires
       const { SecretsManager } = require('@mondaycom/apps-sdk');
-      _secrets = new SecretsManager();
+      _secrets = new SecretsManager() as SecretsLike;
     } catch {
       _secrets = null;
     }
   }
-  return _secrets;
+  return _secrets ?? null;
 }
 
 function envs(): EnvsLike | null {
@@ -29,12 +29,12 @@ function envs(): EnvsLike | null {
     try {
       // eslint-disable-next-line @typescript-eslint/no-var-requires
       const { EnvironmentVariablesManager } = require('@mondaycom/apps-sdk');
-      _envs = new EnvironmentVariablesManager();
+      _envs = new EnvironmentVariablesManager() as EnvsLike;
     } catch {
       _envs = null;
     }
   }
-  return _envs;
+  return _envs ?? null;
 }
 
 export function getSecret(key: string): string {
