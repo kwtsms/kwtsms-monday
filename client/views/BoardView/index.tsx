@@ -72,19 +72,17 @@ export default function BoardView() {
     setSending(true);
     setMsg('');
     try {
+      const numbers = [...new Set(
+        phone.split(/[,;\s]+/).map((n) => n.trim()).filter(Boolean)
+      )];
+      const targets = numbers.map((n) => ({
+        phoneRaw: n,
+        ctx: { item: {}, columns: {}, board: { name: ctx?.boardName ?? '' }, user: {} },
+        boardId: String(ctx?.boardId ?? ''),
+      }));
       const r = await api<{ sent: number; skipped: number; failed: number }>('/api/send', {
         method: 'POST',
-        body: JSON.stringify({
-          source: 'bulk',
-          body,
-          targets: [
-            {
-              phoneRaw: phone,
-              ctx: { item: {}, columns: {}, board: { name: ctx?.boardName ?? '' }, user: {} },
-              boardId: String(ctx?.boardId ?? ''),
-            },
-          ],
-        }),
+        body: JSON.stringify({ source: 'bulk', body, targets }),
       });
       setMsg(`Sent ${r.sent}, skipped ${r.skipped}, failed ${r.failed}`);
       if (r.sent > 0) reportValueCreated();
