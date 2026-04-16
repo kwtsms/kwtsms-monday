@@ -18,7 +18,7 @@ export default function History({ itemId }: { itemId: string }) {
         const r = await api<{ entries: any[] }>(`/api/logs?month=${month}&page=0`);
         setRows(r.entries.filter((e) => e.itemId === itemId));
       } catch {
-        /* silently — kwt-empty shows */
+        /* silently - kwt-empty shows */
       }
     })();
   }, [itemId]);

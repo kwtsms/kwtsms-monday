@@ -20,7 +20,7 @@ async function post<T>(path: string, body: Record<string, unknown>): Promise<T> 
 
 export class KwtSmsClient {
   async balance(creds: AuthCreds): Promise<{ amount: number }> {
-    // API returns { result, available, purchased } — field is "available", not "balance"
+    // API returns { result, available, purchased } - field is "available", not "balance"
     const r = await post<{ result?: string; available?: number | string; balance?: number | string }>(
       '/balance/',
       creds as unknown as Record<string, unknown>,
@@ -36,7 +36,7 @@ export class KwtSmsClient {
   }
 
   async senderIds(creds: AuthCreds): Promise<KwtSenderId[]> {
-    // API returns { result, senderid: [...] } — field is singular "senderid", not "senderids"
+    // API returns { result, senderid: [...] } - field is singular "senderid", not "senderids"
     // Each entry is a plain string (e.g., "KWT-SMS"), not an object
     const r = await post<{ result?: string; senderid?: string | string[]; senderids?: KwtSenderId[] }>(
       '/senderid/',
@@ -55,14 +55,14 @@ export class KwtSmsClient {
   }
 
   async coverage(creds: AuthCreds): Promise<KwtCoverageEntry[]> {
-    // API returns { result, prefixes: ["965", "971", ...] } — flat string array, not an object array
+    // API returns { result, prefixes: ["965", "971", ...] } - flat string array, not an object array
     const r = await post<{
       result?: string;
       prefixes?: Array<string | number>;
       coverage?: Array<Record<string, unknown>>;
     }>('/coverage/', creds as unknown as Record<string, unknown>);
 
-    // "prefixes" is the real API field — a flat array of prefix strings/numbers
+    // "prefixes" is the real API field - a flat array of prefix strings/numbers
     if (r.prefixes) {
       return r.prefixes.map((p) => ({
         countryCode: '',        // API does not return country code in this endpoint
