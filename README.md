@@ -33,25 +33,6 @@ A free monday.com marketplace app that sends one-way SMS through the kwtSMS gate
 - **Phone normalisation** — GCC-aware with `libphonenumber-js`: accepts bare national, `00`-prefixed, `+`-prefixed, Arabic-Indic and Persian digits, leading zero trim, first-valid-match fallback across coverage countries.
 - **Dedup** — per-batch only (in-memory `Set<string>` keyed by phone + cleaned body + sender). No time window, no persisted deduplication — two manual sends to the same number minutes apart always go through.
 
-## Project layout
-
-```
-src/
-  core/              template-engine, normalize, verify, clean-message, send-pipeline, kwtsms-client, errors, notifications, writeback
-  routes/api/        settings, templates, send, logs, stats
-  routes/recipes/    item-created, status-to-value, column-changed, date-arrived
-  routes/cron/       scheduled balance + coverage sync
-  storage/           SecureStorage wrapper, per-domain stores (config, secret, template, log, dedup), in-process cache, request token context
-  middleware/        monday session JWT verification
-client/
-  views/             AccountSettings, ItemView, ItemAction, BoardMenuBulk, BoardView, DashboardWidget
-  components/        NewTemplateButton, PlaceholdersHelp
-  utils/             phoneSources, templateContext, smsCount
-tests/
-  unit/              pure-function tests (template engine, normalize, verify, clean-message, errors)
-  integration/       real kwtSMS API against test credentials (run manually; consumes balance)
-```
-
 ## Local development
 
 Requires Node 20 and the kwtSMS + monday credentials listed in `.env.test` (gitignored).
@@ -77,4 +58,4 @@ For deployment onto monday-code, `mapps code:push -i <draft-version-id>`.
 
 ## Support
 
-`support@kwtsms.com`
+<https://www.kwtsms.com/support.html>
