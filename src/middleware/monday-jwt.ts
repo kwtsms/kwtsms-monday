@@ -18,12 +18,13 @@ export interface AuthedRequest extends Request {
   monday?: MondayContext;
 }
 
-function verifyWith(token: string, secret: string): Record<string, unknown> | null {
-  if (!secret) return null;
+function verifyWith(token: string, secret: string): { payload: Record<string, unknown> | null; err: string | null } {
+  if (!secret) return { payload: null, err: 'secret-empty' };
   try {
-    return jwt.verify(token, secret) as Record<string, unknown>;
-  } catch {
-    return null;
+    const payload = jwt.verify(token, secret) as Record<string, unknown>;
+    return { payload, err: null };
+  } catch (e) {
+    return { payload: null, err: (e as Error).message };
   }
 }
 
@@ -33,17 +34,46 @@ export function mondayAuth(req: AuthedRequest, res: Response, next: NextFunction
     res.status(401).json({ error: 'missing-token' });
     return;
   }
-  const payload =
-    verifyWith(token, CLIENT_SECRET) ?? verifyWith(token, SIGNING_SECRET);
-  if (!payload) {
-    res.status(401).json({ error: 'invalid-token' });
+  const clientTry = verifyWith(token, CLIENT_SECRET);
+  if (clientTry.payload) {
+    const payload = clientTry.payload;
+    const dat = (payload as { dat?: { account_id?: unknown; user_id?: unknown } }).dat ?? {};
+    req.monday = {
+      accountId: String((payload as any).accountId ?? dat.account_id ?? ''),
+      userId: String((payload as any).userId ?? dat.user_id ?? ''),
+      backToUrl: (payload as any).backToUrl,
+    };
+    next();
     return;
   }
-  const dat = (payload as { dat?: { account_id?: unknown; user_id?: unknown } }).dat ?? {};
-  req.monday = {
-    accountId: String((payload as any).accountId ?? dat.account_id ?? ''),
-    userId: String((payload as any).userId ?? dat.user_id ?? ''),
-    backToUrl: (payload as any).backToUrl,
-  };
-  next();
+  const signingTry = verifyWith(token, SIGNING_SECRET);
+  if (signingTry.payload) {
+    const payload = signingTry.payload;
+    const dat = (payload as { dat?: { account_id?: unknown; user_id?: unknown } }).dat ?? {};
+    req.monday = {
+      accountId: String((payload as any).accountId ?? dat.account_id ?? ''),
+      userId: String((payload as any).userId ?? dat.user_id ?? ''),
+      backToUrl: (payload as any).backToUrl,
+    };
+    next();
+    return;
+  }
+  const header = (() => {
+    try {
+      return JSON.parse(Buffer.from(token.split('.')[0], 'base64url').toString());
+    } catch {
+      return null;
+    }
+  })();
+  res.status(401).json({
+    error: 'invalid-token',
+    debug: {
+      tokenPreview: token.slice(0, 20) + '...',
+      tokenHeader: header,
+      clientSecretPresent: !!CLIENT_SECRET,
+      signingSecretPresent: !!SIGNING_SECRET,
+      clientSecretErr: clientTry.err,
+      signingSecretErr: signingTry.err,
+    },
+  });
 }
