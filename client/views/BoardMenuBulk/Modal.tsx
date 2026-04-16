@@ -13,16 +13,43 @@ interface Item {
 }
 
 function extractItemIds(ctx: any): string[] {
-  const candidates = [
+  // Named field probes (documented + observed)
+  const named = [
     ctx?.selectedItemIds,
     ctx?.itemIds,
     ctx?.selectedItems,
     ctx?.pulseIds,
     ctx?.selectedPulseIds,
   ];
-  for (const c of candidates) {
+  for (const c of named) {
     if (Array.isArray(c) && c.length > 0) return c.map((x: any) => String(x?.id ?? x));
   }
+
+  // ItemsConfig may hold { itemIds: [...] } or similar nested structure
+  if (ctx?.itemsConfig || ctx?.ItemsConfig) {
+    const ic = ctx.itemsConfig ?? ctx.ItemsConfig;
+    if (typeof ic === 'object') {
+      for (const v of Object.values(ic)) {
+        if (Array.isArray(v) && v.length > 0) return (v as any[]).map((x: any) => String(x?.id ?? x));
+      }
+    }
+  }
+
+  // Fallback: scan ALL context fields for any array of numbers/strings
+  if (ctx && typeof ctx === 'object') {
+    for (const [, v] of Object.entries(ctx)) {
+      if (Array.isArray(v) && v.length > 0) {
+        const first = (v as any[])[0];
+        if (typeof first === 'number' || (typeof first === 'string' && /^\d+$/.test(first))) {
+          return (v as any[]).map((x: any) => String(x));
+        }
+        if (typeof first === 'object' && first?.id) {
+          return (v as any[]).map((x: any) => String(x.id));
+        }
+      }
+    }
+  }
+
   if (ctx?.itemId) return [String(ctx.itemId)];
   if (ctx?.pulseId) return [String(ctx.pulseId)];
   return [];
@@ -73,7 +100,7 @@ export default function BoardMenuBulk() {
       try {
         const ids = extractItemIds(r.data);
         if (ids.length === 0) {
-          setErr('No selected items in context. Fields present: ' + Object.keys(r.data ?? {}).join(', '));
+          setErr('No selected items found. Context dump: ' + JSON.stringify(r.data, null, 2));
           return;
         }
         const fetched = await fetchItems(ids);
