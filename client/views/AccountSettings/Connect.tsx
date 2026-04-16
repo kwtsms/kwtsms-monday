@@ -55,7 +55,12 @@ export default function Connect() {
 
   return (
     <div>
-      <h2>Connect</h2>
+      <div className="kwt-row kwt-row--between">
+        <h2>Connect</h2>
+        <a href="https://www.kwtsms.com/login" target="_blank" rel="noreferrer" className="kwt-btn kwt-btn--ghost kwt-btn--sm">
+          kwtSMS Dashboard
+        </a>
+      </div>
       {s.connected ? (
         <div className="kwt-card">
           <div className="kwt-row kwt-row--between">
