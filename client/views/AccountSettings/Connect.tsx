@@ -59,6 +59,9 @@ export default function Connect() {
         <h2>Connect</h2>
         <a href="https://www.kwtsms.com/login" target="_blank" rel="noreferrer" className="kwt-btn kwt-btn--ghost kwt-btn--sm">
           kwtSMS Dashboard
+          <svg width="12" height="12" viewBox="0 0 16 16" fill="none" style={{ marginLeft: 4 }} aria-hidden="true">
+            <path d="M6 2h8v8m0-8L6.5 9.5M3 5v8h8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
         </a>
       </div>
       {s.connected ? (
