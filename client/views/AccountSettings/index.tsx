@@ -9,10 +9,6 @@ import Help from './Help';
 export default function AccountSettings() {
   return (
     <div className="kwtsms-settings">
-      <div className="kwt-brand">
-        <h1>kwtSMS</h1>
-        <span className="kwt-badge">for monday.com</span>
-      </div>
       <nav className="kwtsms-anchors">
         <a href="#connect">Connect</a>
         <a href="#defaults">Defaults</a>
