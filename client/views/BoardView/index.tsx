@@ -75,7 +75,7 @@ export default function BoardView() {
       const r = await api<{ sent: number; skipped: number; failed: number }>('/api/send', {
         method: 'POST',
         body: JSON.stringify({
-          source: 'item_view',
+          source: 'bulk',
           body,
           targets: [
             {
