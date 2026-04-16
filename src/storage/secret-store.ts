@@ -8,7 +8,7 @@ type SecureStorageLike = {
   delete(key: string): Promise<void>;
 };
 
-const USE_MEMORY = !process.env.MONDAY_STORAGE_TOKEN;
+const USE_MEMORY = !process.env.K_SERVICE;
 const secureMemory: Map<string, unknown> = new Map();
 
 let _secure: SecureStorageLike | null = null;

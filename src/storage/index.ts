@@ -1,8 +1,8 @@
 // In-memory fallback for local dev and integration tests.
-// When MONDAY_STORAGE_TOKEN is absent (i.e., not running inside monday code),
-// all kv operations use a plain Map instead of the @mondaycom/apps-sdk Storage.
-// Production deployments always have the token injected by the runtime, so the
-// real Storage is used there. TTL in memory mode is honoured via setTimeout.
+// We detect monday-code via K_SERVICE (Google Cloud Run marker the runtime sets).
+// process.env.MONDAY_STORAGE_TOKEN is NOT present in monday-code, so never use it
+// as a selector. In local/CI with K_SERVICE unset, use an in-memory Map; in
+// monday-code, use the real Storage. TTL in memory mode is honoured via setTimeout.
 
 // Lazy-import the SDK so local dev (USE_MEMORY=true) never loads the SDK's
 // heavy Google Cloud transitive deps. Avoids a 15-20s server boot penalty
@@ -13,7 +13,7 @@ type StorageLike = {
   delete(key: string): Promise<void>;
 };
 
-const USE_MEMORY = !process.env.MONDAY_STORAGE_TOKEN;
+const USE_MEMORY = !process.env.K_SERVICE;
 const memory: Map<string, unknown> = new Map();
 
 function memGet<T>(key: string): T | null {
