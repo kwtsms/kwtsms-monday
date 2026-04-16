@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import mondaySdk from 'monday-sdk-js';
-import { api } from '../../api/client';
+import { api, reportValueCreated } from '../../api/client';
 import { countSms } from '../../utils/smsCount';
 
 const monday = mondaySdk();
@@ -87,6 +87,7 @@ export default function BoardView() {
         }),
       });
       setMsg(`Sent ${r.sent}, skipped ${r.skipped}, failed ${r.failed}`);
+      if (r.sent > 0) reportValueCreated();
       if (ctx?.boardId) await loadLogs(String(ctx.boardId));
     } catch (e) {
       setErr('Send failed: ' + String(e));

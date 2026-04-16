@@ -1,13 +1,37 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import AccountSettings from './views/AccountSettings';
 import ItemView from './views/ItemView';
 import DashboardWidget from './views/DashboardWidget';
 import BoardMenuBulk from './views/BoardMenuBulk/Modal';
 import SendOne from './views/ItemAction/SendOne';
 import BoardView from './views/BoardView';
+import { isViewOnly } from './api/client';
+
+function ViewerBlock() {
+  return (
+    <div className="kwt-panel" style={{ textAlign: 'center', paddingTop: 48 }}>
+      <h2 style={{ color: 'var(--c-ink-500)' }}>View-only access</h2>
+      <p style={{ color: 'var(--c-ink-500)' }}>
+        As a viewer, you are unable to use this app.
+        Contact your workspace admin for access.
+      </p>
+    </div>
+  );
+}
 
 export default function App() {
+  const [viewOnly, setViewOnly] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    isViewOnly().then(setViewOnly);
+  }, []);
+
   const path = window.location.pathname;
+  const isReadOnly = path.startsWith('/views/dashboard-widget');
+
+  if (viewOnly === null) return <div className="kwt-loading">Loading…</div>;
+  if (viewOnly && !isReadOnly) return <ViewerBlock />;
+
   if (path.startsWith('/views/item-view')) return <ItemView />;
   if (path.startsWith('/views/dashboard-widget')) return <DashboardWidget />;
   if (path.startsWith('/views/board-view')) return <BoardView />;

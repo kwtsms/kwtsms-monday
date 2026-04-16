@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { api } from '../../api/client';
+import { api, reportValueCreated } from '../../api/client';
 import { countSms } from '../../utils/smsCount';
 
 interface Props {
@@ -54,6 +54,7 @@ export default function Composer(p: Props) {
         }),
       });
       setMsg(`Sent ${r.sent}, skipped ${r.skipped}, failed ${r.failed}`);
+      if (r.sent > 0) reportValueCreated();
       p.onSent();
     } finally {
       setSending(false);
