@@ -153,7 +153,7 @@ export default function BoardMenuBulk() {
         <textarea className="kwt-textarea" value={body} onChange={(e) => setBody(e.target.value)} rows={4} />
         <div className="kwt-row kwt-mt-3" style={{ gap: 8 }}>
           <span className={'kwt-counter' + (smsCount.unicode ? ' kwt-counter--unicode' : '')}>
-            {smsCount.count} chars · {smsCount.pages} page{smsCount.pages === 1 ? '' : 's'} · {smsCount.unicode ? 'Unicode (70/page)' : 'GSM (160/page)'}
+            {smsCount.count} chars · {smsCount.pages} page{smsCount.pages === 1 ? '' : 's'} · {smsCount.unicode ? 'Arabic (70/page)' : 'English (160/page)'}
           </span>
         </div>
       </div>
