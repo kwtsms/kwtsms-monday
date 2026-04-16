@@ -12,7 +12,7 @@ A free monday.com marketplace app that sends one-way SMS through the kwtSMS gate
 
 ## About kwtSMS
 
-[kwtSMS](https://www.kwtsms.com) is a Kuwait-based SMS gateway operating since 2008 with direct routes into local and regional telecom networks across the GCC. It offers alphanumeric and numeric sender IDs, Arabic and English message support, HTTP and SMPP APIs, and high-throughput delivery for transactional and marketing traffic. kwtSMS serves retailers, clinics, schools, government agencies, and logistics operators throughout Kuwait, Saudi Arabia, the UAE, Bahrain, Qatar, and Oman.
+[kwtSMS](https://www.kwtsms.com) is a Kuwait-based SMS gateway operating since 2007, offering Bulk SMS, an SMS API, OTP SMS, Reminder SMS, and sender IDs. Proudly made in Kuwait.
 
 ## Features
 
