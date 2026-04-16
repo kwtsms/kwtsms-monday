@@ -12,6 +12,12 @@ export default function GatewayDefaults() {
   }
   if (!s) return null;
 
+  const coveragePrefixes: string[] = (s.coverage ?? []).map((c: any) => String(c.prefix));
+  if (coveragePrefixes.length === 0) coveragePrefixes.push('965');
+  if (!coveragePrefixes.includes(s.defaultCountryPrefix)) {
+    coveragePrefixes.unshift(s.defaultCountryPrefix);
+  }
+
   return (
     <div>
       <h2>Gateway defaults</h2>
@@ -35,23 +41,26 @@ export default function GatewayDefaults() {
 
         <div className="kwt-field">
           <label className="kwt-label">Default country prefix</label>
-          <input
-            className="kwt-input"
+          <select
+            className="kwt-select"
             value={s.defaultCountryPrefix}
             onChange={(e) => update({ defaultCountryPrefix: e.target.value })}
-            placeholder="965"
-          />
+          >
+            {coveragePrefixes.map((p: string) => (
+              <option key={p} value={p}>+{p}</option>
+            ))}
+          </select>
           <div className="kwt-hint">Applied to bare national numbers (no + or 00 prefix).</div>
         </div>
 
         <div className="kwt-row kwt-mt-3" style={{ gap: 20 }}>
           <label>
-            <input type="checkbox" checked={!!s.testMode} onChange={(e) => update({ testMode: e.target.checked })} />
-            &nbsp;Test mode (<code>test=1</code>)
-          </label>
-          <label>
             <input type="checkbox" checked={!!s.globalEnabled} onChange={(e) => update({ globalEnabled: e.target.checked })} />
             &nbsp;Globally enabled
+          </label>
+          <label>
+            <input type="checkbox" checked={!!s.testMode} onChange={(e) => update({ testMode: e.target.checked })} />
+            &nbsp;Test mode
           </label>
           <label>
             <input type="checkbox" checked={!!s.debugLogs} onChange={(e) => update({ debugLogs: e.target.checked })} />

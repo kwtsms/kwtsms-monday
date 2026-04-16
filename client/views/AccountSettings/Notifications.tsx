@@ -15,11 +15,15 @@ export default function Notifications() {
     <div>
       <h2>Notifications</h2>
       <div className="kwt-card">
+        <p style={{ color: 'var(--c-ink-500)', marginTop: 0, fontSize: 13 }}>
+          These monday.com users will receive a bell notification when balance hits zero or the gateway goes offline.
+          Enter their monday user IDs (found in monday Admin → Users).
+        </p>
         <div className="kwt-field">
-          <label className="kwt-label">Recipient user IDs</label>
+          <label className="kwt-label">monday user IDs (comma-separated)</label>
           <input
             className="kwt-input"
-            placeholder="e.g. 28659824, 10224985 (comma-separated)"
+            placeholder="e.g. 28659824, 10224985"
             value={(s.notifRecipients ?? []).join(', ')}
             onChange={(e) =>
               update({
@@ -30,7 +34,6 @@ export default function Notifications() {
               })
             }
           />
-          <div className="kwt-hint">These users will get a monday notification bell on critical events.</div>
         </div>
         <div className="kwt-row kwt-mt-3" style={{ gap: 20 }}>
           <label>
@@ -39,7 +42,7 @@ export default function Notifications() {
               checked={!!s.notifEvents?.zeroBalance}
               onChange={(e) => update({ notifEvents: { ...s.notifEvents, zeroBalance: e.target.checked } })}
             />
-            &nbsp;Zero balance
+            &nbsp;Zero balance alert
           </label>
           <label>
             <input
@@ -47,7 +50,7 @@ export default function Notifications() {
               checked={!!s.notifEvents?.gatewayOffline}
               onChange={(e) => update({ notifEvents: { ...s.notifEvents, gatewayOffline: e.target.checked } })}
             />
-            &nbsp;Gateway offline
+            &nbsp;Gateway offline alert
           </label>
         </div>
       </div>

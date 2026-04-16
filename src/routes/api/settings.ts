@@ -12,7 +12,7 @@ router.get('/', mondayAuth, async (req: AuthedRequest, res) => {
   const creds = await getKwtCreds(req.monday!.accountId);
   res.json({
     ...cfg,
-    usernameMasked: creds ? creds.username.replace(/.(?=.{2})/g, '*') : null,
+    username: creds ? creds.username : null,
   });
 });
 
