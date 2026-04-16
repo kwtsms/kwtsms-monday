@@ -1,9 +1,7 @@
 import { Router } from 'express';
+import { getSecret, getEnv } from '../core/monday-env';
 
 const router = Router();
-const CLIENT_ID = process.env.MONDAY_CLIENT_ID ?? '';
-const CLIENT_SECRET = process.env.MONDAY_CLIENT_SECRET ?? '';
-const REDIRECT_URI = process.env.MONDAY_REDIRECT_URI ?? '';
 
 router.get('/callback', async (req, res) => {
   const code = String(req.query.code ?? '');
@@ -15,10 +13,10 @@ router.get('/callback', async (req, res) => {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      client_id: CLIENT_ID,
-      client_secret: CLIENT_SECRET,
+      client_id: getEnv('MONDAY_CLIENT_ID'),
+      client_secret: getSecret('MONDAY_CLIENT_SECRET'),
       code,
-      redirect_uri: REDIRECT_URI,
+      redirect_uri: getEnv('MONDAY_REDIRECT_URI'),
     }),
   });
   if (!tokenRes.ok) {

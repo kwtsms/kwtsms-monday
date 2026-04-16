@@ -1,12 +1,13 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
+import { getSecret } from '../core/monday-env';
 
 // monday session tokens (from monday.get('sessionToken')) are signed with the
 // app's Client Secret. Recipe webhook signatures use the Signing Secret. We
 // try Client Secret first and fall back to Signing Secret so both paths work
-// through this single middleware.
-const CLIENT_SECRET = process.env.MONDAY_CLIENT_SECRET ?? '';
-const SIGNING_SECRET = process.env.MONDAY_SIGNING_SECRET ?? '';
+// through this single middleware. Secrets come from monday-code's SecretsManager
+// (NOT process.env) when running on monday-code, with process.env fallback for
+// local dev.
 
 export interface MondayContext {
   accountId: string;
@@ -34,6 +35,8 @@ export function mondayAuth(req: AuthedRequest, res: Response, next: NextFunction
     res.status(401).json({ error: 'missing-token' });
     return;
   }
+  const CLIENT_SECRET = getSecret('MONDAY_CLIENT_SECRET');
+  const SIGNING_SECRET = getSecret('MONDAY_SIGNING_SECRET');
   const clientTry = verifyWith(token, CLIENT_SECRET);
   if (clientTry.payload) {
     const payload = clientTry.payload;
@@ -68,7 +71,6 @@ export function mondayAuth(req: AuthedRequest, res: Response, next: NextFunction
   res.status(401).json({
     error: 'invalid-token',
     debug: {
-      tokenPreview: token.slice(0, 20) + '...',
       tokenHeader: header,
       clientSecretPresent: !!CLIENT_SECRET,
       signingSecretPresent: !!SIGNING_SECRET,
