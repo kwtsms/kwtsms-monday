@@ -15,8 +15,8 @@ export default function History({ itemId }: { itemId: string }) {
       try {
         const now = new Date();
         const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-        const r = await api<{ entries: any[] }>(`/api/logs?month=${month}&page=0`);
-        setRows(r.entries.filter((e) => e.itemId === itemId));
+        const r = await api<{ entries: any[] }>(`/api/logs?month=${month}&page=0&itemId=${encodeURIComponent(itemId)}`);
+        setRows(r.entries);
       } catch {
         /* silently - kwt-empty shows */
       }

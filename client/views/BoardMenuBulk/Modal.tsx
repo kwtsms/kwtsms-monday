@@ -199,7 +199,7 @@ export default function BoardMenuBulk() {
         }));
       const r = await api<{ sent: number; skipped: number; failed: number; placeholderWarnings?: string[] }>('/api/send', {
         method: 'POST',
-        body: JSON.stringify({ source: 'bulk', body, targets }),
+        body: JSON.stringify({ source: 'bulk_item', body, targets }),
       });
       const warn = r.placeholderWarnings && r.placeholderWarnings.length
         ? ` · empty: ${r.placeholderWarnings.join(', ')}`

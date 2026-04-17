@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { api } from '../../api/client';
+import ApiErrorBlock from '../../components/ApiErrorBlock';
 
 interface T { id: string; name: string; body: string; updatedAt: number; }
 
@@ -8,14 +9,16 @@ export default function Templates() {
   const [name, setName] = useState('');
   const [body, setBody] = useState('');
   const [err, setErr] = useState('');
+  const [loadErr, setLoadErr] = useState<unknown>(null);
   const [busy, setBusy] = useState(false);
 
   async function load() {
     try {
       setErr('');
+      setLoadErr(null);
       setList(await api<T[]>('/api/templates'));
     } catch (e) {
-      setErr('Load templates failed: ' + String(e));
+      setLoadErr(e);
     }
   }
   useEffect(() => { void load(); }, []);
@@ -85,6 +88,12 @@ export default function Templates() {
         </button>
         {err && <div className="kwt-alert kwt-alert--danger kwt-mt-3">{err}</div>}
       </div>
+
+      {loadErr && (
+        <div className="kwt-mt-3">
+          <ApiErrorBlock label="Load templates failed" error={loadErr} onRetry={load} />
+        </div>
+      )}
 
       <div className="kwt-mt-4">
         <table className="kwt-table">

@@ -125,7 +125,7 @@ export default function SendOne() {
       const r = await api<{ sent: number; failed: number; skipped: number; placeholderWarnings?: string[] }>('/api/send', {
         method: 'POST',
         body: JSON.stringify({
-          source: 'item_view',
+          source: 'item_menu',
           body,
           targets: [
             {

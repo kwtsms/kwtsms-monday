@@ -30,11 +30,29 @@ function raw(): SecureStorageLike {
   return _raw;
 }
 
+function log(): { error: (m: string, c?: unknown) => void; info: (m: string, c?: unknown) => void } {
+  if (process.env.K_SERVICE) {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const { Logger } = require('@mondaycom/apps-sdk');
+      const l = new Logger('secure-client');
+      return { error: (m, c) => l.error(m, c), info: (m, c) => l.info(m, c) };
+    } catch { /* fall through */ }
+  }
+  return { error: (m, c) => console.error(m, c ?? ''), info: (m, c) => console.log(m, c ?? '') };
+}
+
 async function ensureReady(): Promise<void> {
   if (!process.env.K_SERVICE) return;
   if (!_authInFlight) {
     _authInFlight = (async () => {
-      try { await raw().get('__warmup__'); } catch { /* ignore, surface later */ }
+      const start = Date.now();
+      try {
+        await raw().get('__warmup__');
+        log().info(`secure-storage auth ok ${Date.now() - start}ms`);
+      } catch (e) {
+        log().error('secure-storage auth failed', { error: String(e), durationMs: Date.now() - start });
+      }
     })();
   }
   await _authInFlight;

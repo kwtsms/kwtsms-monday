@@ -4,7 +4,7 @@ export interface LogEntry {
   logId: string;
   timestamp: number;
   recipeInstanceId?: string;
-  source: 'recipe' | 'item_view' | 'bulk';
+  source: string;
   to: string;
   body: string;
   senderId: string;

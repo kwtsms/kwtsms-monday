@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { api } from '../../api/client';
+import ApiErrorBlock from '../../components/ApiErrorBlock';
 
 interface Log {
   logId: string;
@@ -26,17 +27,23 @@ export default function Logs() {
   const [items, setItems] = useState<Log[]>([]);
   const [month, setMonth] = useState(currentMonth());
   const [page, setPage] = useState(0);
+  const [total, setTotal] = useState(0);
+  const [pageSize, setPageSize] = useState(10);
   const [err, setErr] = useState('');
+  const [loadErr, setLoadErr] = useState<unknown>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [clearing, setClearing] = useState(false);
 
   async function load() {
     try {
       setErr('');
-      const r = await api<{ entries: Log[] }>(`/api/logs?month=${month}&page=${page}`);
+      setLoadErr(null);
+      const r = await api<{ entries: Log[]; total: number; pageSize: number }>(`/api/logs?month=${month}&page=${page}`);
       setItems(r.entries);
+      setTotal(r.total);
+      if (r.pageSize) setPageSize(r.pageSize);
     } catch (e) {
-      setErr('Load logs failed: ' + String(e));
+      setLoadErr(e);
     }
   }
   useEffect(() => { void load(); }, [month, page]);
@@ -57,9 +64,19 @@ export default function Logs() {
     <div>
       <h2>Logs</h2>
       <div className="kwt-row kwt-mb-3">
-        <input className="kwt-input" style={{ width: 180 }} type="month" value={month} onChange={(e) => setMonth(e.target.value)} />
+        <input
+          className="kwt-input"
+          style={{ width: 180 }}
+          type="month"
+          value={month}
+          onChange={(e) => {
+            setMonth(e.target.value);
+            setPage(0);
+          }}
+        />
       </div>
       {err && <div className="kwt-alert kwt-alert--danger">{err}</div>}
+      {loadErr && <ApiErrorBlock label="Load logs failed" error={loadErr} onRetry={load} />}
       <table className="kwt-table">
         <thead>
           <tr>
@@ -95,9 +112,20 @@ export default function Logs() {
         </tbody>
       </table>
       <div className="kwt-row kwt-row--between kwt-mt-3">
-        <div style={{ display: 'flex', gap: 8 }}>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           <button className="kwt-btn kwt-btn--ghost kwt-btn--sm" disabled={page === 0} onClick={() => setPage(page - 1)}>← Previous</button>
-          <button className="kwt-btn kwt-btn--ghost kwt-btn--sm" onClick={() => setPage(page + 1)}>Next →</button>
+          <button
+            className="kwt-btn kwt-btn--ghost kwt-btn--sm"
+            disabled={(page + 1) * pageSize >= total}
+            onClick={() => setPage(page + 1)}
+          >
+            Next →
+          </button>
+          {total > 0 && (
+            <span style={{ fontSize: 12, color: 'var(--c-ink-500)', marginLeft: 8 }}>
+              {page * pageSize + 1}–{Math.min((page + 1) * pageSize, total)} of {total}
+            </span>
+          )}
         </div>
         <button
           className="kwt-btn kwt-btn--danger kwt-btn--sm"

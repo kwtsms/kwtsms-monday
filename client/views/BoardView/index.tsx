@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import mondaySdk from 'monday-sdk-js';
 import { api, prewarm, reportValueCreated } from '../../api/client';
+import ApiErrorBlock from '../../components/ApiErrorBlock';
 import { countSms } from '../../utils/smsCount';
 import { fetchMe } from '../../utils/templateContext';
 import NewTemplateButton from '../../components/NewTemplateButton';
@@ -39,15 +40,17 @@ export default function BoardView() {
   const [sending, setSending] = useState(false);
   const [msg, setMsg] = useState('');
 
+  const [logsErr, setLogsErr] = useState<unknown>(null);
   async function loadLogs(boardId: string) {
     try {
       setErr('');
+      setLogsErr(null);
       const now = new Date();
       const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-      const r = await api<{ entries: Log[] }>(`/api/logs?month=${month}&page=0`);
-      setRows(r.entries.filter((e) => e.boardId === boardId));
+      const r = await api<{ entries: Log[] }>(`/api/logs?month=${month}&page=0&boardId=${encodeURIComponent(boardId)}`);
+      setRows(r.entries);
     } catch (e) {
-      setErr('Load logs failed: ' + String(e));
+      setLogsErr(e);
     }
   }
 
@@ -119,7 +122,7 @@ export default function BoardView() {
       }));
       const r = await api<{ sent: number; skipped: number; failed: number; placeholderWarnings?: string[] }>('/api/send', {
         method: 'POST',
-        body: JSON.stringify({ source: 'bulk', body, targets }),
+        body: JSON.stringify({ source: 'bulk_board', body, targets }),
       });
       const warn = r.placeholderWarnings && r.placeholderWarnings.length
         ? ` · empty: ${r.placeholderWarnings.join(', ')}`
@@ -196,6 +199,13 @@ export default function BoardView() {
       <section>
         <h2>Recent messages from this board</h2>
         {err && <div className="kwt-alert kwt-alert--danger">{err}</div>}
+        {logsErr && ctx?.boardId && (
+          <ApiErrorBlock
+            label="Load logs failed"
+            error={logsErr}
+            onRetry={() => loadLogs(String(ctx.boardId))}
+          />
+        )}
         <table className="kwt-table">
           <thead>
             <tr>

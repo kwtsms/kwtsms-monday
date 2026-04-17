@@ -33,6 +33,7 @@ interface RecipeFields {
   phoneColumnId?: string;
   statusColumnId?: string;
   templateId?: string;
+  message?: string;
   senderIdOverride?: string;
   statusValue?: string;
   columnId?: string;
@@ -61,18 +62,29 @@ export async function runRecipe(
   req: AuthedRequest,
   _payload: any,
   source: 'recipe',
-): Promise<void> {
+): Promise<{ status: string; detail?: string }> {
   const accountId = req.monday!.accountId;
+
+  // Full payload dump so we can diagnose field-extraction misses in
+  // `mapps code:logs -i <v> -t console -s live`
+  console.log('runRecipe:payload', JSON.stringify(req.body, null, 2).slice(0, 2000));
+
   const fields = extractFields(req.body);
+  console.log('runRecipe:fields', JSON.stringify(fields));
+
   const { boardId, itemId } = extractBoardAndItem(req.body);
+  console.log('runRecipe:ids', JSON.stringify({ boardId, itemId }));
 
   if (!itemId) {
-    console.error('runRecipe: no itemId found in payload fields:', Object.keys(req.body?.payload ?? {}).join(','));
-    return;
+    console.error('runRecipe: no itemId found in payload');
+    return { status: 'skipped', detail: 'no itemId in payload' };
   }
 
-  let body = '';
-  if (fields.templateId) {
+  // The automation block accepts either a direct message body OR a template
+  // name. Direct message is simpler (no lookup failures). Template name is
+  // a convenience for reusing saved templates.
+  let body = String(fields.message ?? '');
+  if (!body && fields.templateId) {
     const tmpl = await getTemplate(accountId, fields.templateId);
     if (tmpl) {
       body = tmpl.body;
@@ -82,10 +94,21 @@ export async function runRecipe(
       if (byName) body = byName.body;
     }
   }
+  if (!body) {
+    console.error('runRecipe: no message or template provided');
+    return { status: 'skipped', detail: 'no message or template in payload' };
+  }
 
-  const mondayToken = (req.headers.authorization ?? '').replace(/^Bearer\s+/, '');
+  // Monday sends a shortLivedToken in the webhook payload for API calls.
+  // The Authorization header JWT is for webhook signature verification only,
+  // NOT for GraphQL queries. Using the wrong token causes silent API failures.
+  const payload = req.body?.payload ?? req.body;
+  const shortLivedToken = payload?.shortLivedToken
+    ?? payload?.token
+    ?? (req.headers.authorization ?? '').replace(/^Bearer\s+/, '');
+  console.log('runRecipe:token-source', shortLivedToken === (req.headers.authorization ?? '').replace(/^Bearer\s+/, '') ? 'auth-header-fallback' : 'shortLivedToken');
   const m = initMondayClient();
-  m.setToken(mondayToken);
+  m.setToken(shortLivedToken);
 
   const q = `query($id:[ID!]) {
     items(ids:$id) {
@@ -111,7 +134,7 @@ export async function runRecipe(
   const item = r?.data?.items?.[0];
   if (!item) {
     console.error('runRecipe: item not found', itemId);
-    return;
+    return { status: 'skipped', detail: `item ${itemId} not found via GraphQL` };
   }
 
   // Try to populate user.* with the recipe invoker. The webhook payload
@@ -173,8 +196,10 @@ export async function runRecipe(
       source,
       body,
       senderIdOverride: fields.senderIdOverride,
-      mondayAccessToken: mondayToken,
+      mondayAccessToken: shortLivedToken,
       postBell: async () => {},
     },
   );
+  console.log('runRecipe: send() completed for item', itemId);
+  return { status: 'sent', detail: `item=${itemId} phone=${phoneRaw} body=${body.slice(0, 60)}` };
 }

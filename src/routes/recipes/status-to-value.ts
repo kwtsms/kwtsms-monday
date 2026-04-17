@@ -5,9 +5,8 @@ import { runRecipe } from './shared';
 const router = Router();
 
 router.post('/trigger', mondayAuth, async (req: AuthedRequest, res) => {
-  const { inputFields } = req.body.payload;
-  await runRecipe(req, req.body.payload, 'recipe');
-  res.json({ ok: true, statusValue: inputFields.statusValue });
+  const result = await runRecipe(req, req.body.payload, 'recipe');
+  res.json({ ok: true, ...result });
 });
 
 export default router;

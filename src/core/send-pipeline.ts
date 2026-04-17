@@ -23,7 +23,7 @@ export interface SendTarget {
 
 export interface SendOptions {
   accountId: string;
-  source: 'recipe' | 'item_view' | 'bulk';
+  source: 'recipe' | 'item_view' | 'bulk' | 'bulk_item' | 'bulk_board';
   recipeInstanceId?: string;
   body: string;
   senderIdOverride?: string;
