@@ -154,7 +154,8 @@ export default function BoardView() {
         <div className="kwt-card" style={{ maxWidth: 640 }}>
           <div className="kwt-field">
             <label className="kwt-label">To</label>
-            <input className="kwt-input" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="96598765432, 96591234567 .." />
+            {/* 2026-11-05 11:14 +03: placeholders use 965XXXXXXXX, the old sample mobile numbers belong to real people, int-testnumber */}
+            <input className="kwt-input" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="965XXXXXXXX, 965XXXXXXXX .." />
           </div>
           <div className="kwt-field">
             <div className="kwt-row kwt-row--between" style={{ marginBottom: 6 }}>
