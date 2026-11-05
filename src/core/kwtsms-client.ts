@@ -3,6 +3,13 @@ import { KwtSenderId, KwtCoverageEntry, KwtSendRequest, KwtSendResponse } from '
 
 const API_BASE = process.env.KWTSMS_API_BASE ?? 'https://www.kwtsms.com/API';
 
+// 2026-11-05 15:06 +03: integration name and version on every kwtSMS call (no personal data), so kwtSMS can
+// count accounts per integration. Version read from package.json at runtime (src/core and
+// dist/core both sit two levels below it; rootDir src rules out a JSON import), #939.
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const { version } = require('../../package.json') as { version: string };
+export const USER_AGENT = `kwtsms-monday/${version}`;
+
 interface AuthCreds {
   username: string;
   password: string;
@@ -11,7 +18,8 @@ interface AuthCreds {
 async function post<T>(path: string, body: Record<string, unknown>): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    // 2026-11-05 15:06 +03: User-Agent identifies the integration, #939.
+    headers: { 'Content-Type': 'application/json', 'User-Agent': USER_AGENT },
     body: JSON.stringify(body),
   });
   if (!res.ok) throw new Error(`kwtSMS ${path} HTTP ${res.status}`);
