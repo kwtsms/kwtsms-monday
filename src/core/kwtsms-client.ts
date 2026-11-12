@@ -22,8 +22,17 @@ async function post<T>(path: string, body: Record<string, unknown>): Promise<T> 
     headers: { 'Content-Type': 'application/json', 'User-Agent': USER_AGENT },
     body: JSON.stringify(body),
   });
-  if (!res.ok) throw new Error(`kwtSMS ${path} HTTP ${res.status}`);
-  return (await res.json()) as T;
+  // 2026-11-12 20:02 +03: kwtSMS answers errors with HTTP 4xx plus a JSON body (ERR003 = 403). Return that body so
+  // callers see result ERROR + the ERR code; throw only when the body is not kwtSMS JSON. monday-errbody (#1297 test).
+  const text = await res.text();
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    parsed = undefined;
+  }
+  if (parsed && typeof parsed === 'object' && 'result' in parsed) return parsed as T;
+  throw new Error(`kwtSMS ${path} HTTP ${res.status}`);
 }
 
 export class KwtSmsClient {
