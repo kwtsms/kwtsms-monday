@@ -10,6 +10,8 @@
 
 A free monday.com marketplace app that sends one-way SMS through the kwtSMS gateway. Built for GCC customers who keep contacts on monday boards and want to text them without bouncing to a separate tool.
 
+All kwtSMS integrations: [kwtsms.com/integrations](https://www.kwtsms.com/integrations/)
+
 ## About kwtSMS
 
 [kwtSMS](https://www.kwtsms.com) is a Kuwait-based SMS gateway operating since 2007, offering Bulk SMS, an SMS API, OTP SMS, Reminder SMS, and sender IDs. Proudly made in Kuwait.
