@@ -14,6 +14,8 @@ export interface MondayContext {
   accountId: string;
   userId: string;
   backToUrl?: string;
+  // 2026-11-19 22:17 +03: recipe JWTs carry the monday API token here (docs: integration-authorization); it was dropped, so runRecipe fell back to the signature JWT and every item lookup failed, #1569
+  shortLivedToken?: string;
 }
 
 export interface AuthedRequest extends Request {
@@ -58,6 +60,7 @@ export function mondayAuth(req: AuthedRequest, res: Response, next: NextFunction
       accountId: String((payload as any).accountId ?? dat.account_id ?? ''),
       userId: String((payload as any).userId ?? dat.user_id ?? ''),
       backToUrl: (payload as any).backToUrl,
+      shortLivedToken: (payload as { shortLivedToken?: string }).shortLivedToken, // 2026-11-19 22:17 +03: keep the recipe API token, #1569
     };
     runWithToken(token, () => next());
     return;

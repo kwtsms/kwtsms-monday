@@ -103,7 +103,9 @@ export async function runRecipe(
   // The Authorization header JWT is for webhook signature verification only,
   // NOT for GraphQL queries. Using the wrong token causes silent API failures.
   const payload = req.body?.payload ?? req.body;
-  const shortLivedToken = payload?.shortLivedToken
+  // 2026-11-19 22:17 +03: the token lives in the verified Authorization JWT (req.monday), not in the body, #1569
+  const shortLivedToken = req.monday?.shortLivedToken
+    ?? payload?.shortLivedToken
     ?? payload?.token
     ?? (req.headers.authorization ?? '').replace(/^Bearer\s+/, '');
   console.log('runRecipe:token-source', shortLivedToken === (req.headers.authorization ?? '').replace(/^Bearer\s+/, '') ? 'auth-header-fallback' : 'shortLivedToken');
