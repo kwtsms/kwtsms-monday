@@ -1,3 +1,8 @@
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset=".github/assets/readme-header-dark.png">
+  <img alt="kwtSMS for monday.com" src=".github/assets/readme-header-light.png">
+</picture>
+
 # kwtSMS for monday.com
 
 [![monday marketplace](https://img.shields.io/badge/monday.com-marketplace-0073ea?logo=monday&logoColor=fff)](https://monday.com/marketplace)
