@@ -1,6 +1,8 @@
 import { Router } from 'express';
 import { randomUUID } from 'crypto';
 import { mondayAuth, AuthedRequest } from '../../middleware/monday-jwt';
+// 2026-11-24 18:37 +03: F7 admin-only writes and length limits. Job 120 monday review board.
+import { requireAdmin, checkTemplate } from '../../core/limits';
 import {
   listTemplates,
   saveTemplate,
@@ -25,7 +27,12 @@ router.post('/options', mondayAuth, async (req: AuthedRequest, res) => {
   res.json(all.map((t) => ({ title: t.name, value: t.name })));
 });
 
-router.post('/', mondayAuth, async (req: AuthedRequest, res) => {
+router.post('/', mondayAuth, requireAdmin, async (req: AuthedRequest, res) => {
+  const bad = checkTemplate(req.body?.name, req.body?.body);
+  if (bad) {
+    res.status(400).json({ error: bad });
+    return;
+  }
   const now = Date.now();
   const t: Template = {
     id: randomUUID(),
@@ -39,7 +46,12 @@ router.post('/', mondayAuth, async (req: AuthedRequest, res) => {
   res.json(t);
 });
 
-router.put('/:id', mondayAuth, async (req: AuthedRequest, res) => {
+router.put('/:id', mondayAuth, requireAdmin, async (req: AuthedRequest, res) => {
+  const bad = checkTemplate(req.body?.name ?? 'x', req.body?.body ?? 'x');
+  if (bad) {
+    res.status(400).json({ error: bad });
+    return;
+  }
   const existing = await getTemplate(req.monday!.accountId, req.params.id);
   if (!existing) {
     res.status(404).end();
@@ -52,7 +64,7 @@ router.put('/:id', mondayAuth, async (req: AuthedRequest, res) => {
   res.json(existing);
 });
 
-router.delete('/:id', mondayAuth, async (req: AuthedRequest, res) => {
+router.delete('/:id', mondayAuth, requireAdmin, async (req: AuthedRequest, res) => {
   await deleteTemplate(req.monday!.accountId, req.params.id);
   res.json({ ok: true });
 });
