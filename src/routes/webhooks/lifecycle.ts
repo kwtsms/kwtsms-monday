@@ -19,21 +19,18 @@ const router = Router();
 
 router.post('/monday', async (req, res) => {
   const token = (req.headers.authorization ?? '').replace(/^Bearer\s+/, '');
-  // 2026-11-24 18:45 +03: accept the Client Secret (webhooks-1 doc) or the Signing Secret (repo notes: webhook JWTs), same as the session middleware; job 120
-  const secrets = [getSecret('MONDAY_CLIENT_SECRET'), getSecret('MONDAY_SIGNING_SECRET')].filter((s): s is string => !!s);
-  if (!token || secrets.length === 0) {
+  // 2026-11-24 18:59 +03: security c16267: verify with the Client Secret only (lifecycle webhooks, webhooks-1 doc), HS256 only;
+  // the account to purge must be the VERIFIED token's accountId and equal data.account_id; client session tokens
+  // (dat claim) are refused, so a user of account A cannot purge account B. job 120
+  const secret = getSecret('MONDAY_CLIENT_SECRET');
+  if (!token || !secret) {
     res.status(401).json({ error: 'missing-token' });
     return;
   }
-  const valid = secrets.some((s) => {
-    try {
-      jwt.verify(token, s);
-      return true;
-    } catch {
-      return false;
-    }
-  });
-  if (!valid) {
+  let claims: { accountId?: unknown; dat?: unknown };
+  try {
+    claims = jwt.verify(token, secret, { algorithms: ['HS256'] }) as { accountId?: unknown; dat?: unknown };
+  } catch {
     res.status(401).json({ error: 'invalid-token' });
     return;
   }
@@ -45,6 +42,11 @@ router.post('/monday', async (req, res) => {
   const accountId = body.data?.account_id;
   if (accountId === undefined || accountId === null || !/^[0-9]+$/.test(String(accountId))) {
     res.status(400).json({ error: 'account-id-required' });
+    return;
+  }
+  if (claims.dat !== undefined || claims.accountId === undefined || String(claims.accountId) !== String(accountId)) {
+    console.warn('lifecycle webhook refused: token account does not match body account');
+    res.status(403).json({ error: 'account-mismatch' });
     return;
   }
   try {
