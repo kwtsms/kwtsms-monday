@@ -2,7 +2,7 @@
 FILE:      src/core/log-path.ts
 CREATED:   2026-11-24 18:37 +03
 TASK:      job 120 monday review board (F5)
-AUTHOR:    integration agent
+AUTHOR:    M Alhassoun
 WHAT:      logPath(req): request path without the query string, for the request logger.
 WHY:       req.originalUrl on /oauth/callback carries ?code=..., which was written to the logs.
 USAGE:     const p = logPath(req)

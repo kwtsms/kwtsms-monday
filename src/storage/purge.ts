@@ -2,7 +2,7 @@
 FILE:      src/storage/purge.ts
 CREATED:   2026-11-24 18:37 +03
 TASK:      job 120 monday review board (F1)
-AUTHOR:    integration agent
+AUTHOR:    M Alhassoun
 WHAT:      purgeAccount(accountId): deletes EVERY key this app stores for one monday account.
 WHY:       uninstall must leave no customer data (credentials, config, templates, recipes, logs, caches).
 USAGE:     called by POST /webhooks/monday (uninstall event) and POST /api/settings/uninstall.

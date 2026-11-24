@@ -2,7 +2,7 @@
 FILE:      src/core/limits.ts
 CREATED:   2026-11-24 18:37 +03
 TASK:      job 120 monday review board (F7)
-AUTHOR:    integration agent
+AUTHOR:    M Alhassoun
 WHAT:      Server-side input limits and checks: message, template, phone list, admin-only writes.
 WHY:       the server trusted the client; oversized or non-admin writes were accepted.
 USAGE:     checkMessage / checkTemplate / checkTargets return an error string or null; requireAdmin is Express middleware.

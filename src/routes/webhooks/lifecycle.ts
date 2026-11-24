@@ -2,7 +2,7 @@
 FILE:      src/routes/webhooks/lifecycle.ts
 CREATED:   2026-11-24 18:37 +03
 TASK:      job 120 monday review board (F1)
-AUTHOR:    integration agent
+AUTHOR:    M Alhassoun
 WHAT:      POST /webhooks/monday: monday app lifecycle webhook (install, uninstall, ...).
 WHY:       nothing called the uninstall purge; customer data stayed after uninstall.
 USAGE:     Developer Center > Webhooks > "All events": <live URL>/webhooks/monday.
