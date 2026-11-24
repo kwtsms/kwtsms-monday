@@ -14,12 +14,26 @@ export interface MondayContext {
   accountId: string;
   userId: string;
   backToUrl?: string;
+  // 2026-11-24 18:37 +03: F7 role flags, only set when the token carries them. Job 120.
+  isAdmin?: boolean;
+  isViewOnly?: boolean;
+  isGuest?: boolean;
   // 2026-11-19 22:17 +03: recipe JWTs carry the monday API token here (docs: integration-authorization); it was dropped, so runRecipe fell back to the signature JWT and every item lookup failed, #1569
   shortLivedToken?: string;
 }
 
 export interface AuthedRequest extends Request {
   monday?: MondayContext;
+}
+
+// 2026-11-24 18:37 +03: F7 read optional role claims (dat.is_admin etc., or camelCase). Job 120.
+function roles(p: Record<string, any>): { isAdmin?: boolean; isViewOnly?: boolean; isGuest?: boolean } {
+  const d = p.dat ?? {};
+  const pick = (a: string, b: string) => {
+    const v = d[a] ?? p[a] ?? p[b];
+    return typeof v === 'boolean' ? v : undefined;
+  };
+  return { isAdmin: pick('is_admin', 'isAdmin'), isViewOnly: pick('is_view_only', 'isViewOnly'), isGuest: pick('is_guest', 'isGuest') };
 }
 
 function verifyWith(token: string, secret: string): { payload: Record<string, unknown> | null; err: string | null } {
@@ -48,6 +62,7 @@ export function mondayAuth(req: AuthedRequest, res: Response, next: NextFunction
       accountId: String((payload as any).accountId ?? dat.account_id ?? ''),
       userId: String((payload as any).userId ?? dat.user_id ?? ''),
       backToUrl: (payload as any).backToUrl,
+      ...roles(payload),
     };
     runWithToken(token, () => next());
     return;
@@ -60,6 +75,7 @@ export function mondayAuth(req: AuthedRequest, res: Response, next: NextFunction
       accountId: String((payload as any).accountId ?? dat.account_id ?? ''),
       userId: String((payload as any).userId ?? dat.user_id ?? ''),
       backToUrl: (payload as any).backToUrl,
+      ...roles(payload),
       shortLivedToken: (payload as { shortLivedToken?: string }).shortLivedToken, // 2026-11-19 22:17 +03: keep the recipe API token, #1569
     };
     runWithToken(token, () => next());

@@ -26,7 +26,9 @@ process.on('unhandledRejection', (reason) => {
 process.on('uncaughtException', (err) => {
   logger().error('uncaughtException', { error: String(err), stack: err.stack });
 });
-import cronRouter from './routes/cron/sync';
+// 2026-11-24 18:37 +03: F3 removed the unauthenticated /cron/sync route (nothing schedules it; no scheduler is configured). Job 120.
+import webhookRouter from './routes/webhooks/lifecycle';
+import { logPath } from './core/log-path';
 import oauthRouter from './routes/oauth';
 import settingsRouter from './routes/api/settings';
 import templatesRouter from './routes/api/templates';
@@ -48,7 +50,8 @@ app.use((req, res, next) => {
   res.on('finish', () => {
     const dur = Date.now() - start;
     const accountId = (req as any).monday?.accountId;
-    const line = `${req.method} ${req.originalUrl} ${res.statusCode} ${dur}ms${accountId ? ' acc=' + accountId : ''}`;
+    // 2026-11-24 18:37 +03: F5 log the path only; the query string carries the OAuth ?code=. Job 120.
+    const line = `${req.method} ${logPath(req)} ${res.statusCode} ${dur}ms${accountId ? ' acc=' + accountId : ''}`;
     if (res.statusCode >= 500) logger().error(line);
     else if (res.statusCode >= 400) logger().warn(line);
     else logger().info(line);
@@ -56,7 +59,8 @@ app.use((req, res, next) => {
   next();
 });
 
-app.use('/cron', cronRouter);
+// 2026-11-24 18:37 +03: F1 monday lifecycle webhook (uninstall purge), JWT-verified in the router. Job 120.
+app.use('/webhooks', webhookRouter);
 app.use('/oauth', oauthRouter);
 app.use('/api/settings', settingsRouter);
 app.use('/api/templates', templatesRouter);
@@ -73,76 +77,7 @@ app.get('/health', (_req, res) => {
   res.json({ status: 'ok', version: '0.1.0' });
 });
 
-// Temporary debug endpoint: simulates a recipe trigger and returns every
-// step's result inline so we can diagnose why automations aren't sending.
-// Remove after the bug is fixed.
-app.post('/api/debug/recipe', async (req, res) => {
-  const steps: string[] = [];
-  try {
-    const { mondayAuth: auth } = require('./middleware/monday-jwt');
-    await new Promise<void>((resolve, reject) => {
-      auth(req, res, (err?: unknown) => err ? reject(err) : resolve());
-    });
-    steps.push(`auth ok: accountId=${(req as any).monday?.accountId}`);
-
-    const { extractFields, extractBoardAndItem } = (() => {
-      const p = req.body?.payload ?? req.body;
-      const fields = { ...(p?.inputFields ?? {}), ...(p?.inboundFieldValues ?? {}) };
-      const boardId = String(fields.boardId ?? p?.boardId ?? '');
-      const itemId = String(fields.itemId ?? p?.itemId ?? p?.pulseId ?? '');
-      return { extractFields: fields, extractBoardAndItem: { boardId, itemId } };
-    })();
-    steps.push(`fields: ${JSON.stringify(extractFields)}`);
-    steps.push(`ids: boardId=${extractBoardAndItem.boardId} itemId=${extractBoardAndItem.itemId}`);
-
-    if (!extractBoardAndItem.itemId) {
-      steps.push('BAIL: no itemId');
-      return res.json({ steps });
-    }
-
-    const accountId = (req as any).monday?.accountId;
-    const { listTemplates } = require('./storage/template-store');
-    const all = await listTemplates(accountId);
-    steps.push(`templates: ${all.map((t: any) => t.name).join(', ') || '(none)'}`);
-
-    const templateId = extractFields.templateId;
-    if (!templateId) {
-      steps.push('BAIL: no templateId in fields');
-      return res.json({ steps });
-    }
-    const match = all.find((t: any) => t.id === templateId || t.name === templateId);
-    steps.push(match ? `template matched: "${match.name}"` : `BAIL: template "${templateId}" not found`);
-    if (!match) return res.json({ steps });
-
-    const shortLivedToken = (req.body?.payload ?? req.body)?.shortLivedToken
-      ?? (req.body?.payload ?? req.body)?.token
-      ?? (req.headers.authorization ?? '').replace(/^Bearer\s+/, '');
-    steps.push(`token source: ${shortLivedToken === (req.headers.authorization ?? '').replace(/^Bearer\s+/, '') ? 'auth-header' : 'shortLivedToken'}`);
-
-    const initMondayClient = require('monday-sdk-js');
-    const m = initMondayClient();
-    m.setToken(shortLivedToken);
-    const q = `query($id:[ID!]) { items(ids:$id) { id name column_values { id text type column { title } ... on PhoneValue { phone } } } }`;
-    const r = await m.api(q, { variables: { id: [extractBoardAndItem.itemId] } });
-    const item = (r as any)?.data?.items?.[0];
-    steps.push(item ? `item found: "${item.name}"` : `BAIL: item ${extractBoardAndItem.itemId} not found via GraphQL`);
-    if (!item) return res.json({ steps });
-
-    let phoneRaw = '';
-    const phoneColId = extractFields.phoneColumnId;
-    for (const cv of item.column_values ?? []) {
-      if (phoneColId && cv.id === phoneColId) phoneRaw = cv.phone ?? cv.text ?? '';
-      if (!phoneRaw && cv.type === 'phone') phoneRaw = cv.phone ?? cv.text ?? '';
-    }
-    steps.push(`phone: "${phoneRaw}" (from column "${phoneColId}")`);
-
-    steps.push('ALL CHECKS PASSED: would send SMS');
-    res.json({ steps });
-  } catch (e) {
-    steps.push(`ERROR: ${String(e)}`);
-    res.json({ steps });
-  }
-});
+// 2026-11-24 18:37 +03: F4 removed the temporary /api/debug/recipe route (echoed fields and token source, no auth gate on failures). Job 120 monday review board.
 
 // Pre-warm endpoint: forces SecureStorage auth to happen on the serving
 // instance before the client fires a POST. Client calls this first so a

@@ -49,6 +49,45 @@ async function readMonth(a: string, m: string): Promise<LogEntry[]> {
   }
 }
 
+// 2026-11-24 18:37 +03: F2 retention purge. The old purge in cron/sync.ts looked at the legacy "log:" prefix and
+// never touched the real "logs:<acct>:<YYYY-MM>" keys, so nothing was ever deleted. Deletes every
+// month whose calendar month is entirely older than 90 days. 500/month cap (RETENTION) is unchanged.
+// Why: data-handling gap before marketplace review. Job 120 monday review board.
+export const LOG_RETENTION_DAYS = 90;
+const PURGE_LOOKBACK_MONTHS = 36;
+
+export function monthsToPurge(now: number): string[] {
+  const cutoff = new Date(now - LOG_RETENTION_DAYS * 24 * 60 * 60 * 1000);
+  const out: string[] = [];
+  for (let i = 1; i <= PURGE_LOOKBACK_MONTHS; i++) {
+    // Month strictly before the month that contains the cutoff.
+    const d = new Date(Date.UTC(cutoff.getUTCFullYear(), cutoff.getUTCMonth() - i, 1));
+    out.push(monthKey(d.getTime()));
+  }
+  return out;
+}
+
+export async function purgeOldLogs(a: string, now: number = Date.now()): Promise<number> {
+  let removed = 0;
+  for (const m of monthsToPurge(now)) {
+    if ((await kvGet<unknown>(K(a, m))) !== null) {
+      await kvDelete(K(a, m));
+      removed++;
+    }
+  }
+  cacheInvalidatePrefix(`cache:logs:${a}:`);
+  return removed;
+}
+
+// 2026-11-24 18:37 +03: run the purge at most once a day per account per instance, after a write, never blocking the send.
+const lastPurge = new Map<string, number>();
+function maybePurge(a: string): void {
+  const now = Date.now();
+  if (now - (lastPurge.get(a) ?? 0) < 24 * 60 * 60 * 1000) return;
+  lastPurge.set(a, now);
+  void purgeOldLogs(a, now).catch((e) => log().error('purgeOldLogs failed', { error: String(e) }));
+}
+
 export async function saveLog(a: string, entry: LogEntry): Promise<void> {
   const m = monthKey(entry.timestamp);
   const list = await readMonth(a, m);
@@ -58,6 +97,7 @@ export async function saveLog(a: string, entry: LogEntry): Promise<void> {
   const capped = list.length > RETENTION ? list.slice(list.length - RETENTION) : list;
   await kvSet(K(a, m), capped);
   cacheInvalidatePrefix(`cache:logs:${a}`);
+  maybePurge(a); // 2026-11-24 18:37 +03: F2, job 120
 }
 
 export async function listLogs(a: string, month: string): Promise<LogEntry[]> {

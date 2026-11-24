@@ -1,6 +1,8 @@
 import { Router } from 'express';
 import { mondayAuth, AuthedRequest } from '../../middleware/monday-jwt';
 import { send, SendTarget } from '../../core/send-pipeline';
+// 2026-11-24 18:37 +03: F7 message and phone-list limits. Job 120 monday review board.
+import { checkMessage, checkTargets } from '../../core/limits';
 import initMondayClient from 'monday-sdk-js';
 
 const router = Router();
@@ -12,6 +14,11 @@ router.post('/', mondayAuth, async (req: AuthedRequest, res) => {
     senderIdOverride?: string;
     source?: 'item_view' | 'bulk';
   };
+  const bad = checkTargets(targets) ?? checkMessage(body);
+  if (bad) {
+    res.status(400).json({ error: bad });
+    return;
+  }
   const mondayToken = (req.headers.authorization ?? '').replace(/^Bearer\s+/, '');
   const result = await send(targets, {
     accountId: req.monday!.accountId,

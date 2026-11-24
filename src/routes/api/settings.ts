@@ -1,8 +1,11 @@
 import { Router } from 'express';
 import { mondayAuth, AuthedRequest } from '../../middleware/monday-jwt';
-import { getConfig, setConfig, deleteConfig } from '../../storage/config-store';
+import { getConfig, setConfig } from '../../storage/config-store';
 import { getKwtCreds, setKwtCreds, deleteKwtCreds } from '../../storage/secret-store';
 import { KwtSmsClient } from '../../core/kwtsms-client';
+// 2026-11-24 18:37 +03: F1 uninstall reuses the full purge; F7 admin-only writes and input limits. Job 120 monday review board.
+import { purgeAccount } from '../../storage/purge';
+import { requireAdmin, MAX_NOTIF_RECIPIENTS } from '../../core/limits';
 
 const router = Router();
 const client = new KwtSmsClient();
@@ -16,8 +19,17 @@ router.get('/', mondayAuth, async (req: AuthedRequest, res) => {
   });
 });
 
-router.put('/', mondayAuth, async (req: AuthedRequest, res) => {
+router.put('/', mondayAuth, requireAdmin, async (req: AuthedRequest, res) => {
   const cfg = await getConfig(req.monday!.accountId);
+  // 2026-11-24 18:37 +03: F7 bound the free-form fields. Job 120.
+  if (Array.isArray(req.body?.notifRecipients) && req.body.notifRecipients.length > MAX_NOTIF_RECIPIENTS) {
+    res.status(400).json({ error: 'too-many-recipients' });
+    return;
+  }
+  if ('defaultSenderId' in (req.body ?? {}) && (typeof req.body.defaultSenderId !== 'string' || req.body.defaultSenderId.length > 32)) {
+    res.status(400).json({ error: 'invalid-sender-id' });
+    return;
+  }
   const allowed: (keyof typeof cfg)[] = [
     'defaultSenderId',
     'defaultCountryPrefix',
@@ -33,7 +45,7 @@ router.put('/', mondayAuth, async (req: AuthedRequest, res) => {
   res.json({ ok: true });
 });
 
-router.post('/connect', mondayAuth, async (req: AuthedRequest, res) => {
+router.post('/connect', mondayAuth, requireAdmin, async (req: AuthedRequest, res) => {
   const { username, password } = req.body as { username: string; password: string };
   if (!username || !password) {
     res.status(400).json({ error: 'generic' });
@@ -65,7 +77,7 @@ router.post('/connect', mondayAuth, async (req: AuthedRequest, res) => {
 // Re-sync balance / sender IDs / coverage using stored credentials. Called
 // by the Reload button on the Connect card so the user can refresh gateway
 // state without re-entering their password.
-router.post('/reload', mondayAuth, async (req: AuthedRequest, res) => {
+router.post('/reload', mondayAuth, requireAdmin, async (req: AuthedRequest, res) => {
   const creds = await getKwtCreds(req.monday!.accountId);
   if (!creds) {
     res.status(400).json({ error: 'not-connected' });
@@ -89,7 +101,7 @@ router.post('/reload', mondayAuth, async (req: AuthedRequest, res) => {
   }
 });
 
-router.post('/disconnect', mondayAuth, async (req: AuthedRequest, res) => {
+router.post('/disconnect', mondayAuth, requireAdmin, async (req: AuthedRequest, res) => {
   await deleteKwtCreds(req.monday!.accountId);
   const cfg = await getConfig(req.monday!.accountId);
   cfg.connected = false;
@@ -97,9 +109,9 @@ router.post('/disconnect', mondayAuth, async (req: AuthedRequest, res) => {
   res.json({ ok: true });
 });
 
-router.post('/uninstall', mondayAuth, async (req: AuthedRequest, res) => {
-  await deleteKwtCreds(req.monday!.accountId);
-  await deleteConfig(req.monday!.accountId);
+router.post('/uninstall', mondayAuth, requireAdmin, async (req: AuthedRequest, res) => {
+  // 2026-11-24 18:37 +03: F1 purge every key, not just creds and config. Job 120.
+  await purgeAccount(req.monday!.accountId);
   res.json({ ok: true });
 });
 
