@@ -27,6 +27,7 @@ process.on('uncaughtException', (err) => {
   logger().error('uncaughtException', { error: String(err), stack: err.stack });
 });
 import cronRouter from './routes/cron/sync';
+import { logPath } from './core/log-path';
 import oauthRouter from './routes/oauth';
 import settingsRouter from './routes/api/settings';
 import templatesRouter from './routes/api/templates';
@@ -48,7 +49,8 @@ app.use((req, res, next) => {
   res.on('finish', () => {
     const dur = Date.now() - start;
     const accountId = (req as any).monday?.accountId;
-    const line = `${req.method} ${req.originalUrl} ${res.statusCode} ${dur}ms${accountId ? ' acc=' + accountId : ''}`;
+    // 2026-11-24 18:37 +03: F5 log the path only; the query string carries the OAuth ?code=. Job 120.
+    const line = `${req.method} ${logPath(req)} ${res.statusCode} ${dur}ms${accountId ? ' acc=' + accountId : ''}`;
     if (res.statusCode >= 500) logger().error(line);
     else if (res.statusCode >= 400) logger().warn(line);
     else logger().info(line);
