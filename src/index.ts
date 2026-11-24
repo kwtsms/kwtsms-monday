@@ -26,7 +26,7 @@ process.on('unhandledRejection', (reason) => {
 process.on('uncaughtException', (err) => {
   logger().error('uncaughtException', { error: String(err), stack: err.stack });
 });
-import cronRouter from './routes/cron/sync';
+// 2026-11-24 18:37 +03: F3 removed the unauthenticated /cron/sync route (nothing schedules it; no scheduler is configured). Job 120.
 import { logPath } from './core/log-path';
 import oauthRouter from './routes/oauth';
 import settingsRouter from './routes/api/settings';
@@ -58,7 +58,6 @@ app.use((req, res, next) => {
   next();
 });
 
-app.use('/cron', cronRouter);
 app.use('/oauth', oauthRouter);
 [... 82 lines cut by the output filter; full stdout: /tmp/claude-bash-full-1000/repl_52ea6530-997f-4b93-bc9b-b10537a1ff21.stdout.txt (sed -n / grep it) ...]
     res.json({ steps });
