@@ -27,9 +27,11 @@ router.post('/monday', async (req, res) => {
     res.status(401).json({ error: 'missing-token' });
     return;
   }
-  let claims: { accountId?: unknown; dat?: unknown };
+  // 2026-11-24 23:00 +03: live uninstall test 22:55 got 403: monday's lifecycle JWT wraps its claims in dat
+  // ({ dat: { account_id, user_id, client_id, ... } }), not a top-level accountId. Bind to dat.account_id. job 120
+  let claims: { accountId?: unknown; dat?: { account_id?: unknown } };
   try {
-    claims = jwt.verify(token, secret, { algorithms: ['HS256'] }) as { accountId?: unknown; dat?: unknown };
+    claims = jwt.verify(token, secret, { algorithms: ['HS256'] }) as { accountId?: unknown; dat?: { account_id?: unknown } };
   } catch {
     res.status(401).json({ error: 'invalid-token' });
     return;
@@ -44,7 +46,8 @@ router.post('/monday', async (req, res) => {
     res.status(400).json({ error: 'account-id-required' });
     return;
   }
-  if (claims.dat !== undefined || claims.accountId === undefined || String(claims.accountId) !== String(accountId)) {
+  const tokenAccount = claims.dat?.account_id;
+  if (tokenAccount === undefined || tokenAccount === null || String(tokenAccount) !== String(accountId)) {
     console.warn('lifecycle webhook refused: token account does not match body account');
     res.status(403).json({ error: 'account-mismatch' });
     return;
