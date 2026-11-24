@@ -1,9 +1,10 @@
 import { Router } from 'express';
 import { mondayAuth, AuthedRequest } from '../../middleware/monday-jwt';
-import { getConfig, setConfig, deleteConfig } from '../../storage/config-store';
+import { getConfig, setConfig } from '../../storage/config-store';
 import { getKwtCreds, setKwtCreds, deleteKwtCreds } from '../../storage/secret-store';
 import { KwtSmsClient } from '../../core/kwtsms-client';
-// 2026-11-24 18:37 +03: F7 admin-only writes and input limits. Job 120 monday review board.
+// 2026-11-24 18:37 +03: F1 uninstall reuses the full purge; F7 admin-only writes and input limits. Job 120 monday review board.
+import { purgeAccount } from '../../storage/purge';
 import { requireAdmin, MAX_NOTIF_RECIPIENTS } from '../../core/limits';
 
 const router = Router();
@@ -109,8 +110,8 @@ router.post('/disconnect', mondayAuth, requireAdmin, async (req: AuthedRequest, 
 });
 
 router.post('/uninstall', mondayAuth, requireAdmin, async (req: AuthedRequest, res) => {
-  await deleteKwtCreds(req.monday!.accountId);
-  await deleteConfig(req.monday!.accountId);
+  // 2026-11-24 18:37 +03: F1 purge every key, not just creds and config. Job 120.
+  await purgeAccount(req.monday!.accountId);
   res.json({ ok: true });
 });
 
