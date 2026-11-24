@@ -19,14 +19,21 @@ const router = Router();
 
 router.post('/monday', async (req, res) => {
   const token = (req.headers.authorization ?? '').replace(/^Bearer\s+/, '');
-  const secret = getSecret('MONDAY_CLIENT_SECRET');
-  if (!token || !secret) {
+  // 2026-11-24 18:45 +03: accept the Client Secret (webhooks-1 doc) or the Signing Secret (repo notes: webhook JWTs), same as the session middleware; job 120
+  const secrets = [getSecret('MONDAY_CLIENT_SECRET'), getSecret('MONDAY_SIGNING_SECRET')].filter((s): s is string => !!s);
+  if (!token || secrets.length === 0) {
     res.status(401).json({ error: 'missing-token' });
     return;
   }
-  try {
-    jwt.verify(token, secret);
-  } catch {
+  const valid = secrets.some((s) => {
+    try {
+      jwt.verify(token, s);
+      return true;
+    } catch {
+      return false;
+    }
+  });
+  if (!valid) {
     res.status(401).json({ error: 'invalid-token' });
     return;
   }
